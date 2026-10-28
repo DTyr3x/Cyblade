@@ -113,14 +113,18 @@ func _build_slalom() -> void:
 		_add_cylinder(pos, 0.4, 2.0, _cyan)
 
 
-## Rampa de ~20° até uma plataforma a 4 m. A superfície da rampa cruza y=2 no centro.
+## Rampa de ~21° até uma plataforma a 4 m. A superfície da rampa vai de (z=0, y=0)
+## até (z=-10.5, y=4), rente à face frontal da plataforma (sem degrau).
 func _build_ramp_and_platform() -> void:
-	var slope_deg := 20.0
-	var run := 11.0
-	var length := sqrt(run * run + 16.0)
+	var run := 10.5
+	var rise := 4.0
+	var slope := atan2(rise, run)
+	var length := sqrt(run * run + rise * rise)
 	var thickness := 0.5
-	var center := Vector3(20.0, 2.0 - 0.5 * thickness / cos(deg_to_rad(slope_deg)), -5.5)
-	_add_box(center, Vector3(6.0, thickness, length), _concrete, Vector3(slope_deg, 0, 0))
+	var surface_mid := Vector3(20.0, rise * 0.5, -run * 0.5)
+	var normal := Vector3(0.0, cos(slope), sin(slope))
+	var center := surface_mid - normal * (thickness * 0.5)
+	_add_box(center, Vector3(6.0, thickness, length), _concrete, Vector3(rad_to_deg(slope), 0, 0))
 	_add_box(Vector3(20, 2.0, -17.5), Vector3(14, 4.0, 14), _metal)
 	_add_box(Vector3(20, 4.05, -24.0), Vector3(14, 0.1, 0.3), _red)
 
