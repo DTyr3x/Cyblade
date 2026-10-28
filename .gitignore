@@ -1,0 +1,31 @@
+# Godot
+.godot/
+.import/
+*.translation
+export.cfg
+export_credentials.cfg
+mono_crash.*
+
+# Builds
+/build/
+/builds/
+*.exe
+*.pck
+*.zip
+
+# Dados locais
+/screenshots_local/
+*.log
+*.tmp
+
+# Editores e sistema
+.vs/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Segredos
+.env
+*.key
+*.pem

@@ -1,0 +1,14 @@
+; Engine configuration file.
+; Não edite à mão partes geradas pelo editor sem necessidade.
+
+config_version=5
+
+[application]
+
+config/name="CYBLADE"
+config/description="Action roguelite 3D cyberpunk, single-player e offline."
+config/features=PackedStringArray("4.7", "Forward Plus")
+
+[rendering]
+
+renderer/rendering_method="forward_plus"
