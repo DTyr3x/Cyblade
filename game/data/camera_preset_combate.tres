@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="CameraPreset" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://game/camera/camera_preset.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+preset_name = "combate"
+pitch_deg = 45.0
+distance = 20.0
+fov_deg = 34.0
+focus_height = 1.0
+framing_shift = 0.0
+follow_tau = 0.1
+look_ahead = 0.4
+look_ahead_tau = 0.3
+blend_time = 0.6
