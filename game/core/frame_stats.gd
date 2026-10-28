@@ -6,15 +6,43 @@ extends RefCounted
 const MAX_SAMPLES := 200000
 
 var samples := PackedFloat32Array()
+## Tempo de render medido pelo Godot (ms), do quadro anterior. Independe de limitadores
+## de FPS externos, então mostra a folga real da GPU e da CPU.
+var gpu_samples := PackedFloat32Array()
+var cpu_samples := PackedFloat32Array()
 
 
-func record(frame_seconds: float) -> void:
+func record(frame_seconds: float, gpu_ms := -1.0, cpu_ms := -1.0) -> void:
 	if samples.size() < MAX_SAMPLES:
 		samples.append(frame_seconds)
+		if gpu_ms >= 0.0:
+			gpu_samples.append(gpu_ms)
+		if cpu_ms >= 0.0:
+			cpu_samples.append(cpu_ms)
 
 
 func reset() -> void:
 	samples = PackedFloat32Array()
+	gpu_samples = PackedFloat32Array()
+	cpu_samples = PackedFloat32Array()
+
+
+## Médias e extremos do tempo de render (GPU e CPU) medido pelo Godot.
+func render_summary() -> Dictionary:
+	var out := {}
+	for pair in [["gpu", gpu_samples], ["cpu", cpu_samples]]:
+		var arr: PackedFloat32Array = pair[1]
+		if arr.is_empty():
+			continue
+		var sorted := arr.duplicate()
+		sorted.sort()
+		var total := 0.0
+		for v in arr:
+			total += v
+		out[pair[0] + "_avg_ms"] = total / arr.size()
+		out[pair[0] + "_p99_ms"] = percentile(sorted, 0.99)
+		out[pair[0] + "_max_ms"] = sorted[sorted.size() - 1]
+	return out
 
 
 ## Estatísticas dos últimos `count` quadros (para o HUD).

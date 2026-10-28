@@ -19,6 +19,7 @@ var _last_frame_usec := 0
 
 
 func _ready() -> void:
+	RenderingServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), true)
 	player.global_position = TestArena.SPAWN_POSITION
 	camera_rig.set_target(player)
 	hud.camera_rig = camera_rig
@@ -38,7 +39,11 @@ func _physics_process(_delta: float) -> void:
 func _process(_delta: float) -> void:
 	var now := Time.get_ticks_usec()
 	if _last_frame_usec != 0:
-		stats.record((now - _last_frame_usec) / 1000000.0)
+		var rid := get_viewport().get_viewport_rid()
+		stats.record(
+			(now - _last_frame_usec) / 1000000.0,
+			RenderingServer.viewport_get_measured_render_time_gpu(rid),
+			RenderingServer.viewport_get_measured_render_time_cpu(rid))
 	_last_frame_usec = now
 	hud.last_device = last_device
 	if Input.is_action_just_pressed("quit_game"):

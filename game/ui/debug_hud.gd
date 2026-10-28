@@ -79,6 +79,9 @@ func _build_text() -> String:
 	if not s.is_empty():
 		lines.append("FPS %5.0f   quadro %.2f ms (pior %.2f ms)" % [s["avg_fps"], s["avg_ms"], s["max_ms"]])
 		lines.append("1%% baixo %5.0f fps (últimos %d quadros)" % [s["low1_fps"], s["frames"]])
+		var r := stats.render_summary()
+		if r.has("gpu_avg_ms"):
+			lines.append("Render GPU %.2f ms · CPU %.2f ms (médias da sessão)" % [r["gpu_avg_ms"], r["cpu_avg_ms"]])
 	lines.append("Dispositivo: %s" % last_device)
 	if camera_rig != null:
 		var c := camera_rig.state()
