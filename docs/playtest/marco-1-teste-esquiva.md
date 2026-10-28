@@ -13,9 +13,21 @@ Objetivo: fechar a pendência "sensação e responsividade da esquiva" do Marco 
 | Fase | Duração | Observação |
 |---|---|---|
 | Deslocamento | ~0,25 s | Sai rápido e desacelera até parar, sem "frear seco" |
-| Recuperação | ~0,18 s | Sem controle; total ~0,43 s |
+| Recarga | ~0,18 s | Você já corre normalmente; só não dá para esquivar de novo. Total ~0,43 s |
 | Invulnerabilidade | 0,05 a 0,20 s | Só indicada no HUD; ainda não há inimigos |
 | Pedido antecipado | até 0,15 s antes | Apertar durante a recuperação dispara a esquiva ao terminar |
+
+## Validar a transição esquiva → corrida (correção do PO)
+
+1. Segure **W** correndo, toque **Espaço**, continue segurando **W**. A velocidade deve seguir alta o tempo todo: sem pausa, freada ou "tranco" ao fim do deslocamento.
+2. Repita com **Shift**, e com o stick do controle se tiver.
+3. Esquive parado e logo segure uma direção: deve acelerar na hora.
+4. Esquive correndo e solte tudo: o personagem desacelera naturalmente e para.
+5. Esquive e troque de direção durante ou logo após: deve virar sem pausa.
+6. Esquive várias vezes seguidas: a recarga de ~0,18 s ainda existe, o toque antecipado dispara no fim dela.
+7. Com **F3** ligado, a linha de velocidade não deve cair a zero entre a esquiva e a corrida.
+
+Se ainda parecer preso, diga onde (fim do deslocamento, durante a recarga, ao trocar de direção).
 
 ## Roteiro de 3 minutos
 
@@ -34,7 +46,7 @@ Use a área aberta à esquerda da régua de postes (x negativo, longe das parede
 - Resposta: o personagem parte **na hora** quando você aperta? (sim / há atraso perceptível)
 - Distância: **curta, certa ou longa**? Se errada, em quantos metros?
 - Duração do deslocamento: **rápida demais, certa ou lenta**?
-- Recuperação: parece **presa**, certa ou solta demais?
+- Transição esquiva → corrida: **fluida** ou ainda presa?
 - Tecla: Espaço ou Shift, qual é mais confortável? As duas?
 - O visual (agachar levemente, sem rastro ainda) comunica bem a esquiva ou falta algo?
 
@@ -46,7 +58,9 @@ Edite `game/data/player_tuning.tres` no Godot (ou me passe os números):
 |---|---|
 | Distância | `dodge_distance` (4,0) |
 | Rapidez do deslocamento | `dodge_duration` (0,25) |
-| Recuperação | `dodge_recovery` (0,18) |
+| Recarga entre esquivas | `dodge_recovery` (0,18) |
+| Velocidade ao fim da esquiva | `dodge_exit_speed_ratio` (1,0 = corrida; 0 = para) |
+| Travar movimento na recarga (combate futuro) | `dodge_recovery_locks_movement` (falso) |
 | Pedido antecipado | `dodge_buffer_time` (0,15) |
 | Invulnerabilidade | `dodge_iframe_start` e `dodge_iframe_end` |
 

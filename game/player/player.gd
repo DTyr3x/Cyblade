@@ -20,6 +20,7 @@ var state_time := 0.0
 var dodge_direction := Vector3.ZERO
 
 var _dodge_buffer := 0.0
+var _dodge_exit_fraction := 0.0
 var _visual: NinjaVisual
 
 
@@ -79,6 +80,12 @@ func _tick_move(delta: float) -> void:
 		_start_dodge(dir)
 		_tick_dodge(delta)
 		return
+	_locomote(dir, delta)
+
+
+## Locomoção normal: acelera/freia rumo à entrada e gira o corpo. Usada em MOVE e, quando a
+## recuperação não trava o movimento, também em RECOVERY.
+func _locomote(dir: Vector3, delta: float) -> void:
 	var target := dir * tuning.max_speed
 	var h := MotionMath.approach_velocity(horizontal_velocity(), target, tuning.accel(), tuning.decel(), tuning.reverse_accel_multiplier, delta)
 	velocity.x = h.x
@@ -93,6 +100,10 @@ func _start_dodge(input_dir: Vector3) -> void:
 	if dir.length() < 0.1:
 		dir = -global_transform.basis.z
 	dodge_direction = Vector3(dir.x, 0.0, dir.z).normalized()
+	# Só termina em velocidade de corrida se o jogador está dirigindo; parado, termina parado.
+	_dodge_exit_fraction = 0.0
+	if input_dir.length() >= 0.1:
+		_dodge_exit_fraction = clampf(tuning.dodge_exit_speed_ratio * tuning.max_speed * tuning.dodge_duration / tuning.dodge_distance, 0.0, 1.0)
 	rotation.y = atan2(-dodge_direction.x, -dodge_direction.z)
 	_dodge_buffer = 0.0
 	_enter(State.DODGE, 0.0)
@@ -102,21 +113,26 @@ func _start_dodge(input_dir: Vector3) -> void:
 func _tick_dodge(delta: float) -> void:
 	var t0 := state_time
 	var t1 := minf(state_time + delta, tuning.dodge_duration)
-	var d0 := MotionMath.dodge_distance_at(t0 / tuning.dodge_duration, tuning.dodge_distance)
-	var d1 := MotionMath.dodge_distance_at(t1 / tuning.dodge_duration, tuning.dodge_distance)
+	var d0 := MotionMath.dodge_distance_at(t0 / tuning.dodge_duration, tuning.dodge_distance, _dodge_exit_fraction)
+	var d1 := MotionMath.dodge_distance_at(t1 / tuning.dodge_duration, tuning.dodge_distance, _dodge_exit_fraction)
 	var v := dodge_direction * ((d1 - d0) / delta)
 	velocity.x = v.x
 	velocity.z = v.z
 	state_time += delta
-	if state_time >= tuning.dodge_duration:
-		_enter(State.RECOVERY, state_time - tuning.dodge_duration)
+	# Tolerância de ponto flutuante: sem ela, state_time = 0,2499999 gasta um tick extra com
+	# velocidade zero (d1 - d0 = 0) e cria uma parada de 1 tick entre a esquiva e a corrida.
+	if state_time >= tuning.dodge_duration - 0.0001:
+		_enter(State.RECOVERY, maxf(state_time - tuning.dodge_duration, 0.0))
 		dodge_finished.emit()
 
 
 func _tick_recovery(delta: float) -> void:
-	var h := MotionMath.approach_velocity(horizontal_velocity(), Vector3.ZERO, tuning.accel(), tuning.decel(), 1.0, delta)
-	velocity.x = h.x
-	velocity.z = h.z
+	if tuning.dodge_recovery_locks_movement:
+		var h := MotionMath.approach_velocity(horizontal_velocity(), Vector3.ZERO, tuning.accel(), tuning.decel(), 1.0, delta)
+		velocity.x = h.x
+		velocity.z = h.z
+	else:
+		_locomote(_input_direction(), delta)
 	state_time += delta
 	if state_time >= tuning.dodge_recovery:
 		_enter(State.MOVE, 0.0)

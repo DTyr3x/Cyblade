@@ -17,9 +17,15 @@ static func approach_velocity(velocity: Vector3, target: Vector3, accel: float, 
 ## Distância percorrida na esquiva ao progresso `progress` (0..1).
 ## Perfil de velocidade v(s) = v0 * (1 - s²): sai rápido e desacelera até zero.
 ## A integral é 1,5·s − 0,5·s³, que vale exatamente 1 em s = 1.
-static func dodge_distance_at(progress: float, total_distance: float) -> float:
+##
+## `exit_fraction` (0..1) mistura um trecho de velocidade constante ao perfil, para a esquiva
+## terminar na velocidade de corrida em vez de parar: f(s) = e·s + (1−e)·(1,5·s − 0,5·s³).
+## A velocidade final vale e · (distância / duração) e a distância total continua exata.
+## Com `exit_fraction` = 0 é o perfil original.
+static func dodge_distance_at(progress: float, total_distance: float, exit_fraction := 0.0) -> float:
 	var s := clampf(progress, 0.0, 1.0)
-	return total_distance * (1.5 * s - 0.5 * s * s * s)
+	var e := clampf(exit_fraction, 0.0, 1.0)
+	return total_distance * (e * s + (1.0 - e) * (1.5 * s - 0.5 * s * s * s))
 
 
 ## Coeficiente de suavização exponencial independente da taxa de quadros.

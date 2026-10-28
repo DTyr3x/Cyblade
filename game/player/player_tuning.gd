@@ -23,6 +23,12 @@ extends Resource
 @export var dodge_duration := 0.25
 ## Recuperação sem controle após o deslocamento, s (referência: total ~0,43 s).
 @export var dodge_recovery := 0.18
+## Se verdadeiro, a recuperação trava a locomoção (ex.: ações de combate futuras).
+## Falso: o jogador já controla o movimento na recuperação; ela só impede nova esquiva.
+@export var dodge_recovery_locks_movement := false
+## Velocidade ao fim do deslocamento, como fração de `max_speed`, quando há direção
+## pressionada no início da esquiva. Evita o "freio" antes de voltar a correr. 0 = para.
+@export_range(0.0, 1.0) var dodge_exit_speed_ratio := 1.0
 ## Quanto tempo uma esquiva pedida durante a recuperação continua valendo, s.
 @export var dodge_buffer_time := 0.15
 ## Janela de invulnerabilidade dentro do deslocamento, s. Escolha de design nossa:

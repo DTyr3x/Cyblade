@@ -40,11 +40,11 @@ Dê dois cliques em `Jogar.bat` (ou rode `tools\run.ps1`). O script procura o Go
 | HUD de depuração | F3 | Back |
 | Sair | Esc | n/d |
 
-**Esquiva:** toque **Espaço** (ou **Shift**) para deslocar ~4 m na direção em que você está se movendo (ou para onde o personagem está virado, se parado). Dura ~0,25 s mais ~0,18 s de recuperação; um toque durante a recuperação fica guardado por 0,15 s e dispara ao terminar. Como testar: `docs/playtest/marco-1-teste-esquiva.md`.
+**Esquiva:** toque **Espaço** (ou **Shift**) para deslocar ~4 m na direção em que você está se movendo (ou para onde o personagem está virado, se parado). Dura ~0,25 s mais ~0,18 s de recarga; durante a recarga você já pode correr (a esquiva só não pode ser repetida), e um toque nesse período fica guardado por 0,15 s e dispara ao terminar. Correndo, a esquiva termina na velocidade de corrida, sem freada. Como testar: `docs/playtest/marco-1-teste-esquiva.md`.
 
 ## Testes
 
-- `tools\run_tests.ps1`: 72 verificações automatizadas, sem janela. Entradas simuladas.
+- `tools\run_tests.ps1`: 95 verificações automatizadas, sem janela. Entradas simuladas.
 - `tools\playtest.ps1`: playtest scriptado em janela, com FPS, esquivas medidas e capturas.
 - Resultados e limitações: `docs/playtest/marco-1-resultados.md`. Checklist para teste humano: `docs/playtest/marco-1-checklist.md`.
 

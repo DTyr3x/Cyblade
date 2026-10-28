@@ -22,12 +22,16 @@ Primeiro playtest humano, teclado/mouse. Resultado informado: **8 critérios pos
 
 **Decisão do PO:** Marco 1 aprovado tecnicamente, com pendência de validação humana da esquiva. Guia para fechar a pendência: `marco-1-teste-esquiva.md`.
 
+### Observação do PO sobre a esquiva (segundo playtest)
+
+O PO testou a esquiva e relatou: **ao terminar, o personagem desacelera ou trava antes de voltar a correr**, o que quebra a fluidez. A causa e a correção estão no ADR 0002 (seção "Revisão"). Resultado automatizado após a correção: **95 verificações, 0 falhas**, incluindo 23 novas de fluidez. **Falta o PO jogar de novo e confirmar.**
+
 Observação: o relato do PO é qualitativo. Ele não substitui as medições abaixo e não valida o gamepad físico.
 
 ## 1. Testes automatizados (sem janela)
 
 Comando: `tools\run_tests.ps1` (equivale a `godot --headless --fixed-fps 120 -s res://tests/run_tests.gd`).
-Resultado: **72 verificações, 0 falhas** (código de saída 0). Com `--fixed-fps 120` cada quadro vale exatamente 1 tick de física, então os tempos são determinísticos (resolução de 8,3 ms).
+Resultado: **95 verificações, 0 falhas** (código de saída 0; eram 72 antes da correção da esquiva). Com `--fixed-fps 120` cada quadro vale exatamente 1 tick de física, então os tempos são determinísticos (resolução de 8,3 ms).
 
 | Área | O que foi verificado | Resultado |
 |---|---|---|

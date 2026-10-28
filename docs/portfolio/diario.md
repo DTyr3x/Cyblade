@@ -20,3 +20,8 @@ Registro cronológico do que foi feito, por quem e como foi validado. O PO (Prod
 - **Achado de desempenho:** o FPS ficou em ~117 mesmo em uma cena vazia, indicando um teto externo ao jogo; o custo de render medido é de ~0,4 ms de GPU. Ficou registrado como limitação, com um pico de ~61 ms na troca de enquadramento ainda sem causa isolada.
 - Resultados, números e limitações: `docs/playtest/marco-1-resultados.md`.
 - Decisões técnicas: ADRs 0002 e 0003.
+
+## 28/10/2026: correção da esquiva
+
+- O PO jogou a esquiva e achou que o personagem desacelerava ou travava ao terminar. Investigação antes de mexer: o perfil de velocidade terminava em zero e a recuperação de 0,18 s ignorava a entrada, então o personagem parava e recomeçava a correr do zero (~0,3 s de pausa). Um tick extra de velocidade zero por ponto flutuante agravava.
+- Corrigido com saída da esquiva em velocidade de corrida, recuperação sem travar locomoção (configurável) e testes de fluidez. Detalhes no ADR 0002. Aguarda reteste do PO.

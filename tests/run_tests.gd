@@ -35,6 +35,7 @@ func _run() -> void:
 	await _test_gamepad_movement()
 	await _test_dodge()
 	await _test_dodge_buffer_and_direction()
+	await _test_dodge_flow()
 	await _test_camera()
 	await _test_camera_relative_movement()
 	await _test_ramp()
@@ -375,3 +376,151 @@ func _test_camera_relative_movement() -> void:
 	_near(_player.global_position.z - start.z, 0.0, 0.1, "sem desvio em Z")
 	await _seconds(0.3)
 	_rig.yaw = 0.0
+
+
+# --- fluidez pós-esquiva ------------------------------------------------------
+
+## Velocidade horizontal mínima observada em `seconds` a partir de agora, e a final.
+func _speed_trace(seconds: float) -> Dictionary:
+	var min_v := INF
+	var last := 0.0
+	for i in int(round(seconds / DT)):
+		await physics_frame
+		last = _player.horizontal_velocity().length()
+		min_v = minf(min_v, last)
+	return {"min": min_v, "last": last}
+
+
+func _tap(code: Key) -> void:
+	_key(code, true)
+	await physics_frame
+	_key(code, false)
+
+
+func _wait_state(s: Player.State, timeout := 1.0) -> bool:
+	var n := int(round(timeout / DT))
+	while _player.state != s and n > 0:
+		await physics_frame
+		n -= 1
+	return _player.state == s
+
+
+func _test_dodge_flow() -> void:
+	print("-- Esquiva: fluidez (sem queda artificial de velocidade)")
+	var cruise := _player.tuning.max_speed
+
+	# 1. Corrida -> esquiva -> corrida contínua (Espaço).
+	await _reset_player(Vector3(-15, 0.05, 25), -PI / 2.0)
+	_key(KEY_W, true)
+	await _seconds(0.5)
+	await _tap(KEY_SPACE)
+	_check(await _wait_state(Player.State.RECOVERY), "1. esquiva termina em RECOVERY")
+	var v_end := _player.horizontal_velocity().length()
+	_check(v_end >= cruise * 0.9, "1. sai da esquiva em velocidade de corrida", "%.2f m/s" % v_end)
+	var tr := await _speed_trace(0.6)
+	_check(tr.min >= cruise * 0.95, "1. sem queda de velocidade depois da esquiva (mínimo)", "mín %.2f m/s, cruzeiro %.2f" % [tr.min, cruise])
+	_key(KEY_W, false)
+	await _seconds(0.3)
+
+	# 2. Esquiva parada -> segurar direção logo depois: acelera já na recuperação.
+	await _reset_player(Vector3(-15, 0.05, 25), -PI / 2.0)
+	await _tap(KEY_SPACE)
+	await _seconds(0.1)
+	_key(KEY_W, true)
+	_check(await _wait_state(Player.State.RECOVERY), "2. esquiva parada chega a RECOVERY")
+	await _seconds(0.1)
+	_check(_player.horizontal_velocity().length() > cruise * 0.6, "2. recuperação não trava a locomoção (já está acelerando)", "%.2f m/s" % _player.horizontal_velocity().length())
+	await _seconds(0.3)
+	_near(_player.horizontal_velocity().length(), cruise, 0.1, "2. chega à velocidade de corrida")
+	_key(KEY_W, false)
+	await _seconds(0.3)
+
+	# 3. Esquiva -> nenhuma direção: desacelera naturalmente e para.
+	await _reset_player(Vector3(-15, 0.05, 25), -PI / 2.0)
+	_key(KEY_W, true)
+	await _seconds(0.5)
+	await _tap(KEY_SPACE)
+	_key(KEY_W, false)
+	await _seconds(0.6)
+	_check(_player.horizontal_velocity().length() < 0.05, "3. sem direção, para depois da esquiva")
+	_check(_player.state == Player.State.MOVE, "3. volta a MOVE")
+
+	# 4. Esquiva -> mudança de direção (D, perpendicular): responde sem pausa.
+	await _reset_player(Vector3(-15, 0.05, 25), -PI / 2.0)
+	_key(KEY_W, true)
+	await _seconds(0.5)
+	await _tap(KEY_SPACE)
+	_key(KEY_W, false)
+	_key(KEY_D, true)
+	_check(await _wait_state(Player.State.RECOVERY), "4. esquiva termina com a direção trocada")
+	await _seconds(0.1)
+	var vel := _player.horizontal_velocity()
+	_check(vel.x > 1.5, "4. já acelera para a nova direção na recuperação", "vx %.2f" % vel.x)
+	await _seconds(0.4)
+	_near(_player.horizontal_velocity().length(), cruise, 0.15, "4. velocidade de corrida na nova direção")
+	_key(KEY_D, false)
+	await _seconds(0.3)
+
+	# 5. Esquiva contra obstáculo (caixa em (10,0.6,10), 2x2): para na parede, sem atravessar.
+	await _reset_player(Vector3(5.0, 0.05, 10.0), -PI / 2.0)
+	_rig.snap()
+	_key(KEY_D, true)
+	await _seconds(0.4)
+	await _tap(KEY_SPACE)
+	await _seconds(0.5)
+	_check(_player.global_position.x < 9.0, "5. esquiva contra obstáculo não atravessa a caixa", "x %.2f" % _player.global_position.x)
+	_check(_player.state != Player.State.DODGE, "5. sai do estado de esquiva")
+	_key(KEY_D, false)
+	await _seconds(0.3)
+
+	# 6. Esquivas repetidas: a recuperação ainda impede esquiva nova; o pedido antecipado vale.
+	await _reset_player(Vector3(-15, 0.05, 25), -PI / 2.0)
+	_key(KEY_W, true)
+	await _seconds(0.5)
+	await _tap(KEY_SPACE)
+	_check(await _wait_state(Player.State.RECOVERY), "6. primeira esquiva termina")
+	await _seconds(0.05)
+	await _tap(KEY_SPACE)
+	_check(_player.state == Player.State.RECOVERY, "6. durante a recuperação não esquiva de imediato (recarga)")
+	_check(await _wait_state(Player.State.DODGE, 0.3), "6. pedido antecipado dispara ao fim da recuperação")
+	var starts := 0
+	_player.dodge_started.connect(func(_d): starts += 1)
+	await _seconds(0.8)
+	_key(KEY_W, false)
+	_check(starts == 0, "6. nenhuma esquiva fantasma extra")
+	await _seconds(0.3)
+
+	# 7. Shift e gamepad (B + stick) também mantêm o fluxo.
+	await _reset_player(Vector3(-15, 0.05, 25), -PI / 2.0)
+	_key(KEY_W, true)
+	await _seconds(0.5)
+	await _tap(KEY_SHIFT)
+	_check(await _wait_state(Player.State.RECOVERY), "7. Shift: esquiva termina")
+	tr = await _speed_trace(0.6)
+	_check(tr.min >= cruise * 0.95, "7. Shift: sem queda de velocidade", "mín %.2f" % tr.min)
+	_key(KEY_W, false)
+	await _seconds(0.3)
+
+	await _reset_player(Vector3(-15, 0.05, 25), -PI / 2.0)
+	_pad_axis(JOY_AXIS_LEFT_Y, -1.0)
+	await _seconds(0.5)
+	_pad_button(JOY_BUTTON_B, true)
+	await physics_frame
+	_pad_button(JOY_BUTTON_B, false)
+	_check(await _wait_state(Player.State.RECOVERY), "7. gamepad: esquiva termina")
+	tr = await _speed_trace(0.6)
+	_check(tr.min >= cruise * 0.95, "7. gamepad: sem queda de velocidade", "mín %.2f" % tr.min)
+	_pad_axis(JOY_AXIS_LEFT_Y, 0.0)
+	await _seconds(0.3)
+
+	# Distância preservada com a nova saída em velocidade de corrida.
+	await _reset_player(Vector3(-15, 0.05, 25), -PI / 2.0)
+	_key(KEY_W, true)
+	await _seconds(0.5)
+	var p0 := _player.global_position
+	await _tap(KEY_SPACE)
+	_check(await _wait_state(Player.State.RECOVERY), "8. esquiva em corrida termina")
+	var moved := _player.global_position.distance_to(p0)
+	_key(KEY_W, false)
+	_near(moved, 4.0, 0.3, "8. deslocamento da esquiva em corrida (m)")
+	await _seconds(0.5)
