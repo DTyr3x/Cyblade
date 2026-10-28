@@ -40,6 +40,7 @@ func _run() -> void:
 	sheets["02_giro_90_e_180"] = await _seq_turns()
 	sheets["03_esquiva_correndo"] = await _seq_dodge(Vector2.RIGHT)
 	sheets["04_esquiva_parado"] = await _seq_dodge(Vector2.ZERO)
+	sheets["05_andar_analogico"] = await _seq_walk()
 	for k: String in sheets:
 		_save_sheet(sheets[k], "h1_%s.png" % k)
 	print("[anim_sheet] ok")
@@ -99,6 +100,23 @@ func _seq_loco() -> Array:
 	tiles.append_array(await _capture(6, 7, _hud_label))
 	Input.action_release("move_right")
 	tiles.append_array(await _capture(4, 4, _hud_label))
+	return tiles
+
+
+## Andar com o stick analógico (~1,5 m/s e ~3 m/s): mistura Idle, Walk e Jog.
+func _seq_walk() -> Array:
+	_side = Vector3(0, 0, 1)
+	_place(Vector3(-20, 0.05, 15), -PI / 2.0)
+	await _ticks(60)
+	var tiles: Array = []
+	Input.action_press("move_right", 0.4)
+	await _ticks(40)
+	tiles.append_array(await _capture(6, 10, _hud_label))
+	Input.action_press("move_right", 0.65)
+	await _ticks(40)
+	tiles.append_array(await _capture(6, 6, _hud_label))
+	Input.action_release("move_right")
+	await _ticks(30)
 	return tiles
 
 

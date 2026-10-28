@@ -34,6 +34,9 @@ const MODEL_FORWARD := Vector3(0, 0, 1)
 @export var run_full_ratio := 0.8
 @export var run_start_ratio := 0.35
 @export var posture_tau := 0.07
+## Peso mínimo da postura de espadachim mesmo parado/andando (katana baixa e para trás,
+## em vez de apontada ao chão como uma bengala).
+@export_range(0.0, 1.0) var sword_idle_amount := 0.55
 
 var _run_amount := 0.0
 var _dash_amount := 0.0
@@ -41,6 +44,9 @@ var _lean_fwd := 0.0
 var _lean_side := 0.0
 var _prev_forward := Vector3.FORWARD
 var _bones := {}
+## Poses globais calculadas por nós a partir das poses locais (evita forçar o Skeleton3D a
+## recalcular a hierarquia a cada leitura, o que custava ~1,3 ms por quadro).
+var _cache := {}
 
 
 func set_motion(delta: float, velocity: Vector3, forward: Vector3, max_speed: float, dodging: bool) -> void:
@@ -76,6 +82,7 @@ func _process_modification() -> void:
 	var sk := get_skeleton()
 	if sk == null:
 		return
+	_cache.clear()
 	if _bones.is_empty():
 		for n in ["pelvis", "spine_01", "spine_02", "spine_03", "upperarm_r", "lowerarm_r", "hand_r"]:
 			_bones[n] = sk.find_bone(n)
@@ -87,7 +94,7 @@ func _process_modification() -> void:
 		_rotate_model_space(sk, _bones[n], q)
 	# Braço da katana para trás: o braço é conduzido para uma direção-alvo (cai rumo à postura
 	# de espadachim conforme `_run_amount`), em vez de somar um desvio ao balanço do clipe.
-	var sword_amount := maxf(_run_amount, _dash_amount)
+	var sword_amount := maxf(maxf(_run_amount, _dash_amount), sword_idle_amount)
 	if sword_amount > 0.001:
 		_aim_bone(sk, _bones["upperarm_r"], _bones["lowerarm_r"], sword_upper_dir.normalized(), sword_amount)
 		_aim_bone(sk, _bones["lowerarm_r"], _bones["hand_r"], sword_fore_dir.normalized(), sword_amount)
@@ -98,7 +105,7 @@ func _process_modification() -> void:
 func _aim_bone(sk: Skeleton3D, bone: int, child: int, target_dir: Vector3, weight: float) -> void:
 	if bone < 0 or child < 0:
 		return
-	var cur := (sk.get_bone_global_pose(child).origin - sk.get_bone_global_pose(bone).origin).normalized()
+	var cur := (_global(sk, child).origin - _global(sk, bone).origin).normalized()
 	var full := Quaternion(cur, target_dir)
 	_rotate_model_space(sk, bone, Quaternion.IDENTITY.slerp(full, weight))
 
@@ -108,8 +115,19 @@ func _rotate_model_space(sk: Skeleton3D, bone: int, delta_q: Quaternion) -> void
 	if bone < 0:
 		return
 	var parent := sk.get_bone_parent(bone)
-	var g := sk.get_bone_global_pose(bone)
+	var g := _global(sk, bone)
 	var new_g := Transform3D(Basis(delta_q) * g.basis, g.origin)
-	var parent_g := sk.get_bone_global_pose(parent) if parent >= 0 else Transform3D.IDENTITY
+	var parent_g := _global(sk, parent) if parent >= 0 else Transform3D.IDENTITY
 	var local := parent_g.affine_inverse() * new_g
 	sk.set_bone_pose_rotation(bone, local.basis.get_rotation_quaternion())
+	_cache.clear()  # os descendentes mudaram
+
+
+## Pose global do osso (espaço do esqueleto) a partir das poses locais atuais, com cache por quadro.
+func _global(sk: Skeleton3D, bone: int) -> Transform3D:
+	if _cache.has(bone):
+		return _cache[bone]
+	var parent := sk.get_bone_parent(bone)
+	var g := (_global(sk, parent) if parent >= 0 else Transform3D.IDENTITY) * sk.get_bone_pose(bone)
+	_cache[bone] = g
+	return g
