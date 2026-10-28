@@ -24,7 +24,7 @@ Primeiro playtest humano, teclado/mouse. Resultado informado: **8 critérios pos
 
 ### Observação do PO sobre a esquiva (segundo playtest)
 
-O PO testou a esquiva e relatou: **ao terminar, o personagem desacelera ou trava antes de voltar a correr**, o que quebra a fluidez. A causa e a correção estão no ADR 0002 (seção "Revisão"). Resultado automatizado após a correção: **95 verificações, 0 falhas**, incluindo 23 novas de fluidez. **Falta o PO jogar de novo e confirmar.**
+O PO testou a esquiva e relatou: **ao terminar, o personagem desacelera ou trava antes de voltar a correr**, o que quebra a fluidez. A causa e a correção estão no ADR 0002 (seção "Revisão"). Resultado automatizado após a correção: **95 verificações, 0 falhas**, incluindo 23 novas de fluidez. **O PO jogou de novo e confirmou: a transição está fluida (aprovado).**
 
 Observação: o relato do PO é qualitativo. Ele não substitui as medições abaixo e não valida o gamepad físico.
 
