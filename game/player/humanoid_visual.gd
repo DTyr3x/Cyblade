@@ -11,17 +11,22 @@ extends Node3D
 
 const MODEL_PATH := "res://assets/characters/ual/UAL1_Standard.glb"
 
-## Ponto do eixo de locomoção = velocidade de AUTORIA do clipe (m/s, medida por nós).
-## Assim, ao correr a v m/s, os pés cobrem o chão na mesma velocidade e o escorregamento é mínimo.
+## Ponto do eixo de locomoção = velocidade de AUTORIA do clipe (m/s). Walk e Jog foram calibrados
+## medindo a velocidade do pé em apoio em relação ao corpo (0,77 e 5,46 m/s); o Sprint (8,25) vem do
+## deslocamento do root do clipe e só é usado na investida da esquiva (a corrida usa Jog acelerado).
 const LOCO_POINTS := [
 	["Idle", 0.0],
-	["Walk", 0.97],
-	["Jog_Fwd", 5.36],
+	["Walk", 0.77],
+	["Jog_Fwd", 5.46],
 	["Sprint", 8.25],
 ]
 
 ## Pico de velocidade de autoria (Sprint). Na esquiva, o ciclo de corrida vai a esse ponto.
 const DASH_BLEND_POINT := 8.25
+## O ciclo de Jog pode tocar até 25% mais rápido antes de entrar mistura com Sprint (a corrida
+## de 6 m/s fica em Jog a 1,10x, sem misturar passadas de ritmos diferentes).
+const JOG_SPEED := 5.46
+const MAX_JOG_SCALE := 1.25
 
 signal skeleton_ready
 
@@ -33,6 +38,7 @@ var katana: Node3D
 
 var _player: Player
 var _blend_pos := 0.0
+var _run_scale := 1.0
 
 
 func _ready() -> void:
@@ -61,13 +67,35 @@ func update_pose(delta: float, velocity: Vector3, forward: Vector3, max_speed: f
 		return
 	pose_modifier.set_motion(delta, velocity, forward, max_speed, dodging)
 	var speed := Vector3(velocity.x, 0.0, velocity.z).length()
-	# Na esquiva o ciclo vai ao ponto de sprint (corrida em investida); a mistura é suave.
-	_blend_pos = lerpf(speed, DASH_BLEND_POINT, pose_modifier.dash_amount())
+	# Posição de mistura e velocidade de reprodução: o ciclo acelera até MAX_JOG_SCALE antes de
+	# passar ao Sprint. Assim os pés acompanham o chão sem misturar ritmos de passada.
+	var gait := speed
+	var scale := 1.0
+	if speed > JOG_SPEED:
+		scale = minf(speed / JOG_SPEED, MAX_JOG_SCALE)
+		var over := speed - JOG_SPEED * MAX_JOG_SCALE
+		gait = JOG_SPEED if over <= 0.0 else JOG_SPEED + over * (DASH_BLEND_POINT - JOG_SPEED) / (DASH_BLEND_POINT - JOG_SPEED * MAX_JOG_SCALE)
+		scale = 1.0 if over > 0.0 else scale
+	var dash := pose_modifier.dash_amount()
+	# Na esquiva o ciclo vai ao ponto de sprint (investida); a mistura é suave.
+	_blend_pos = lerpf(minf(gait, DASH_BLEND_POINT), DASH_BLEND_POINT, dash)
 	anim_tree["parameters/Loco/blend_position"] = _blend_pos
+	anim_tree["parameters/RunScale/scale"] = lerpf(scale, 1.0, dash)
+	_run_scale = scale
 
 
 func blend_position() -> float:
 	return _blend_pos
+
+
+func run_scale() -> float:
+	return _run_scale
+
+
+## Velocidade que a animação "cobre": posição de mistura x velocidade de reprodução.
+## Em corrida normal é igual à velocidade da cápsula (pés acompanham o chão).
+func effective_speed() -> float:
+	return _blend_pos * _run_scale
 
 
 func _setup_materials(model: Node) -> void:
@@ -91,7 +119,9 @@ func _setup_tree() -> void:
 
 	var root := AnimationNodeBlendTree.new()
 	root.add_node("Loco", blend)
-	root.connect_node("output", 0, "Loco")
+	root.add_node("RunScale", AnimationNodeTimeScale.new())
+	root.connect_node("RunScale", 0, "Loco")
+	root.connect_node("output", 0, "RunScale")
 
 	anim_tree = AnimationTree.new()
 	anim_tree.name = "AnimationTree"
