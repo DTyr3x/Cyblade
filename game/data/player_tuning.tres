@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="PlayerTuning" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://game/player/player_tuning.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+max_speed = 6.0
+accel_time = 0.12
+decel_time = 0.08
+reverse_accel_multiplier = 1.5
+turn_rate_deg = 1080.0
+gravity = 30.0
+dodge_distance = 4.0
+dodge_duration = 0.25
+dodge_recovery = 0.18
+dodge_buffer_time = 0.15
+dodge_iframe_start = 0.05
+dodge_iframe_end = 0.2
