@@ -2,7 +2,7 @@
 
 > Nome provisório. Action roguelite 3D cyberpunk para PC Windows/Steam, single-player e offline.
 
-**Estado:** Marco 1 (câmera e movimentação) em avaliação pelo PO. Há um protótipo jogável: ninja provisório, esquiva, câmera elevada e arena de testes. Ainda não há combate.
+**Estado:** Marco 1 (câmera e movimentação) aprovado tecnicamente pelo PO, com pendência de validação humana da esquiva (`docs/playtest/marco-1-teste-esquiva.md`). Há um protótipo jogável: ninja provisório, esquiva, câmera elevada e arena de testes. Ainda não há combate. Pendências técnicas: `docs/pendencias-tecnicas.md`.
 
 ## Visão
 
@@ -40,9 +40,11 @@ Dê dois cliques em `Jogar.bat` (ou rode `tools\run.ps1`). O script procura o Go
 | HUD de depuração | F3 | Back |
 | Sair | Esc | n/d |
 
+**Esquiva:** toque **Espaço** (ou **Shift**) para deslocar ~4 m na direção em que você está se movendo (ou para onde o personagem está virado, se parado). Dura ~0,25 s mais ~0,18 s de recuperação; um toque durante a recuperação fica guardado por 0,15 s e dispara ao terminar. Como testar: `docs/playtest/marco-1-teste-esquiva.md`.
+
 ## Testes
 
-- `tools\run_tests.ps1`: 71 verificações automatizadas, sem janela. Entradas simuladas.
+- `tools\run_tests.ps1`: 72 verificações automatizadas, sem janela. Entradas simuladas.
 - `tools\playtest.ps1`: playtest scriptado em janela, com FPS, esquivas medidas e capturas.
 - Resultados e limitações: `docs/playtest/marco-1-resultados.md`. Checklist para teste humano: `docs/playtest/marco-1-checklist.md`.
 

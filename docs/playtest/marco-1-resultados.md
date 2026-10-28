@@ -4,10 +4,30 @@ Branch `feat/marco-1-camera-movimento`. Godot 4.7.2 stable, Forward+ (Vulkan 1.4
 
 **Limite importante:** toda a entrada deste documento foi **simulada por script** (eventos de teclado e de gamepad). Não há controle físico conectado nesta máquina e nenhum humano jogou ainda. O que está medido é lógica, estabilidade e desempenho. A sensação de jogo depende do checklist humano (`marco-1-checklist.md`).
 
+## 0. Playtest humano do PO (informado pelo PO)
+
+Primeiro playtest humano, teclado/mouse. Resultado informado: **8 critérios positivos, nenhum negativo, 1 não avaliado.**
+
+| Critério | Resultado |
+|---|---|
+| Movimentação confortável | Aprovado |
+| Aceleração e frenagem naturais | Aprovado |
+| Mudança de direção responsiva | Aprovado |
+| Câmera acompanhando corretamente | Aprovado |
+| Rotação pelo mouse confortável | Aprovado |
+| Câmera mantém o personagem visível nos obstáculos | Aprovado |
+| Rampa e plataforma funcionando | Aprovado |
+| Ausência de travamentos perceptíveis | Aprovado |
+| Sensação e responsividade da esquiva | **Pendente** (não avaliado) |
+
+**Decisão do PO:** Marco 1 aprovado tecnicamente, com pendência de validação humana da esquiva. Guia para fechar a pendência: `marco-1-teste-esquiva.md`.
+
+Observação: o relato do PO é qualitativo. Ele não substitui as medições abaixo e não valida o gamepad físico.
+
 ## 1. Testes automatizados (sem janela)
 
 Comando: `tools\run_tests.ps1` (equivale a `godot --headless --fixed-fps 120 -s res://tests/run_tests.gd`).
-Resultado: **71 verificações, 0 falhas** (código de saída 0). Com `--fixed-fps 120` cada quadro vale exatamente 1 tick de física, então os tempos são determinísticos (resolução de 8,3 ms).
+Resultado: **72 verificações, 0 falhas** (código de saída 0). Com `--fixed-fps 120` cada quadro vale exatamente 1 tick de física, então os tempos são determinísticos (resolução de 8,3 ms).
 
 | Área | O que foi verificado | Resultado |
 |---|---|---|
