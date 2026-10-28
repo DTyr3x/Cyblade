@@ -21,15 +21,16 @@ var dodge_direction := Vector3.ZERO
 
 var _dodge_buffer := 0.0
 var _dodge_exit_fraction := 0.0
-var _visual: NinjaVisual
+var visual: HumanoidVisual
 
 
 func _ready() -> void:
 	if tuning == null:
 		tuning = PlayerTuning.new()
 	floor_snap_length = 0.4
-	_visual = NinjaVisual.new()
-	add_child(_visual)
+	visual = HumanoidVisual.new()
+	add_child(visual)
+	visual.bind(self)
 
 
 func horizontal_velocity() -> Vector3:
@@ -64,9 +65,7 @@ func _physics_process(delta: float) -> void:
 
 
 func _process(delta: float) -> void:
-	var forward := -global_transform.basis.z
-	var ratio := horizontal_velocity().dot(forward) / tuning.max_speed
-	_visual.animate(delta, ratio, state == State.DODGE)
+	visual.update_pose(delta, velocity, -global_transform.basis.z, tuning.max_speed, state == State.DODGE)
 
 
 func _input_direction() -> Vector3:
