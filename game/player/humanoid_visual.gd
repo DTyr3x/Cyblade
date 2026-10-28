@@ -100,9 +100,13 @@ func effective_speed() -> float:
 
 func _setup_materials(model: Node) -> void:
 	var armor := StandardMaterial3D.new()
-	armor.albedo_color = Color(0.07, 0.075, 0.09)
-	armor.metallic = 0.6
-	armor.roughness = 0.45
+	armor.albedo_color = Color(0.20, 0.22, 0.28)
+	armor.metallic = 0.35
+	armor.roughness = 0.5
+	# Brilho mínimo para o corpo se destacar do piso escuro na câmera alta (material provisório).
+	armor.emission_enabled = true
+	armor.emission = Color(0.10, 0.14, 0.2)
+	armor.emission_energy_multiplier = 0.6
 	for mi in model.find_children("*", "MeshInstance3D", true, false):
 		(mi as MeshInstance3D).material_override = armor
 
