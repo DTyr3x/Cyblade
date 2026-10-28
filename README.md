@@ -2,7 +2,7 @@
 
 > Nome provisório. Action roguelite 3D cyberpunk para PC Windows/Steam, single-player e offline.
 
-**Estado:** Marco 1 (câmera e movimentação) aprovado tecnicamente pelo PO, com pendência de validação humana da esquiva (`docs/playtest/marco-1-teste-esquiva.md`). Há um protótipo jogável: ninja provisório, esquiva, câmera elevada e arena de testes. Ainda não há combate. Pendências técnicas: `docs/pendencias-tecnicas.md`.
+**Estado:** Marco 1 (câmera e movimentação, com esquiva fluida) aprovado pelo PO e integrado à `main`. Em avaliação pelo PO: **H1, locomoção humanoide** (`docs/h1-locomocao.md`): humanoide com esqueleto e `AnimationTree`, postura de espadachim e esquiva integrada. Ainda não há combate. Pendências técnicas: `docs/pendencias-tecnicas.md`.
 
 ## Visão
 
@@ -20,7 +20,8 @@ Um ninja com katana enfrenta robôs numa megacidade industrial, com qualidade vi
 | Marco | Escopo | Estado |
 |---|---|---|
 | 0 | Fundação: projeto, estrutura, Git | Concluído |
-| 1 | Câmera e movimentação | Em avaliação pelo PO |
+| 1 | Câmera e movimentação | Concluído (aprovado pelo PO; PR #1 integrado) |
+| H1 | Locomoção humanoide (esqueleto, AnimationTree, esquiva integrada) | Em avaliação pelo PO (PR aberto) |
 | 2 | Direção gráfica | Planejado |
 | 3 | Combate | Planejado |
 | 4 | Forja de Combos | Planejado |
@@ -44,7 +45,7 @@ Dê dois cliques em `Jogar.bat` (ou rode `tools\run.ps1`). O script procura o Go
 
 ## Testes
 
-- `tools\run_tests.ps1`: 95 verificações automatizadas, sem janela. Entradas simuladas.
+- `tools\run_tests.ps1`: 133 verificações automatizadas, sem janela. Entradas simuladas.
 - `tools\playtest.ps1`: playtest scriptado em janela, com FPS, esquivas medidas e capturas.
 - Resultados e limitações: `docs/playtest/marco-1-resultados.md`. Checklist para teste humano: `docs/playtest/marco-1-checklist.md`.
 
@@ -57,6 +58,7 @@ Dê dois cliques em `Jogar.bat` (ou rode `tools\run.ps1`). O script procura o Go
 
 - O jogo é desenvolvido do zero, sob direção do Product Owner (PO), com auxílio de ferramentas de IA (Claude Code; Codex previsto para testes e auditorias). O PO decide escopo, direção e validações.
 - Decisões técnicas ficam em `docs/adr/`; testes de jogo em `docs/playtest/`.
+- Animações e malha do humanoide provisório: Universal Animation Library, de Quaternius (CC0). Registro e licenças em `docs/ativos/registro.md`.
 - Nenhum modelo, código, animação ou recurso de jogos de referência é usado. Jogos de referência servem apenas para estudo de sensação de gameplay.
 - Fluxo Git: `main` estável; branches `feat/`, `fix/`, `test/`, `docs/` e `chore/`; integração por Pull Request.
 
