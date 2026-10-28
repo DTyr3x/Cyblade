@@ -296,6 +296,13 @@ func _test_dodge_buffer_and_direction() -> void:
 	await _seconds(0.1)
 	_check(_player.state == Player.State.DODGE, "botão B do gamepad dispara a esquiva")
 	await _seconds(0.5)
+	await _reset_player(Vector3(-15, 0.05, 25), -PI / 2.0)
+	_key(KEY_SHIFT, true)
+	await physics_frame
+	_key(KEY_SHIFT, false)
+	await _seconds(0.1)
+	_check(_player.state == Player.State.DODGE, "Shift dispara a esquiva")
+	await _seconds(0.5)
 
 
 func _test_camera() -> void:
