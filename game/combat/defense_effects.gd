@@ -133,7 +133,7 @@ func _on_attacked(info: Dictionary) -> void:
 			_light.global_position = p
 			_light_t = 0.1
 			_play(_parry_sound, p)
-			player.visual.flash_body(Color(0.8, 0.95, 1.0), 0.8)
+			player.visual.flash_body(Color(0.8, 0.95, 1.0), 0.45)
 		DefenseController.Result.BLOCK:
 			events.append("defesa")
 			_burst(_block_sparks, p, (side * 0.6 + Vector3.UP * 0.4 - away * 0.3).normalized())

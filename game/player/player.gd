@@ -37,6 +37,7 @@ var _defend_buffer := 0.0
 ## Aperto de defesa recebido pelo evento de entrada, consumido no próximo passo de física. Mais confiável
 ## que `is_action_just_pressed` na física, que pode perder um toque curto entre dois passos.
 var _defend_pending := false
+var _defend_was_held := false
 ## Ataque apertado no "mesmo instante" da defesa (até um quadro de 60 Hz depois) é descartado: a defesa
 ## tem prioridade, mesmo que os dois eventos cheguem à física em passos vizinhos.
 const SAME_INSTANT := 0.02
@@ -84,9 +85,12 @@ func is_invulnerable() -> bool:
 
 func _physics_process(delta: float) -> void:
 	var now := CombatClock.time
-	var defend_pressed := _defend_pending
-	_defend_pending = false
 	var defend_held := Input.is_action_pressed("defend")
+	# Aperto = evento recebido OU borda de "segurado" (cobre ações acionadas sem evento, como
+	# Input.action_press de controles virtuais). Os dois no mesmo passo contam como um aperto só.
+	var defend_pressed := _defend_pending or (defend_held and not _defend_was_held)
+	_defend_pending = false
+	_defend_was_held = defend_held
 	if now < _freeze_until:
 		# Hitstop local (parry ou defesa): o corpo congela e os apertos ficam guardados sem expirar.
 		if Input.is_action_just_pressed("dodge"):
