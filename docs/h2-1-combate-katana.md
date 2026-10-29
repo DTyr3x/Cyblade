@@ -1,7 +1,7 @@
 # H2.1: nova referência de combate e primeiro golpe autoral
 
-Status: **pesquisa entregue e primeiro golpe jogável. NÃO aprovado: depende do playtest humano do PO.**
-Branch `feat/h2-combate-katana` (PR #3, sem merge). Os golpes 2 e 3 continuam os do H2 (reprovados) até o golpe 1 ser aprovado.
+Status: **Kesa avançado APROVADO PELO PO após playtest humano, sem ressalvas (29/10/2026).** Ver "Aprovação do PO" no fim deste documento.
+Branch `feat/h2-combate-katana` (PR #3, sem merge). O segundo golpe (Kiriage de retorno) está em `docs/h2-2-kiriage.md`; o terceiro ainda é o do H2 (provisório).
 
 ## 1. Pesquisa: Phantom Blade Zero
 
@@ -146,3 +146,11 @@ Ataque com **J**, botão esquerdo do mouse ou **X**. Esquiva com **Espaço**. **
 10. **Esquiva:** esquivar no meio do golpe responde na hora e continua fluido?
 11. **Corrida:** saindo do golpe para correr, a troca de empunhadura (duas mãos para uma) incomoda?
 12. **Comparação:** em relação ao H2, melhorou resposta, corpo e impacto? O que ainda falta para lembrar a qualidade de Phantom Blade Zero?
+
+## Aprovação do PO
+
+O PO realizou o playtest humano do **Kesa avançado** e informou: **APROVADO, SEM RESSALVAS** (29/10/2026). É o primeiro golpe autoral de katana oficialmente aprovado.
+
+Decisão: não alterar o Kesa sem necessidade comprovada. Qualquer ajuste ao Kesa feito para facilitar o golpe seguinte precisa de justificativa e de nova aprovação.
+
+Aprovado do Kesa: resposta, postura, pegada de duas mãos, trajetória diagonal, peso e passo, pés, contato e impacto, recuperação, esquiva no meio do golpe e a volta à corrida. O estado aprovado do clipe é `assets/animations/katana/katana_kesa.res` (SHA-256 `2a7cb0b2da3d2a9360e6b951dabd394ffd8124f3bf592790a5f87d33d0ae8e45`) e os tempos do golpe 1 em `game/data/katana_combo.tres`.
