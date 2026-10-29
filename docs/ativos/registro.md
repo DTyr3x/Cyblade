@@ -66,3 +66,13 @@ Rastro, faíscas e clarão são feitos em código (malha dinâmica, `CPUParticle
 | Origem | **Original do CYBLADE.** Poses-chave em código (`tools/blender/katana_kiriage_keys.py`), IK no Blender 4.5.10 sobre o esqueleto do UAL (CC0). Começa da pose do Kesa aprovado. Regerar: `tools/build_katana_strike.ps1` |
 | Referências | Princípios de kenjutsu (kiriage, okuri-ashi). Nada copiado de Phantom Blade Zero ou Dinghai |
 | Licença | Do projeto |
+
+## Golpe autoral "Tsuki de passo duplo" (H2.3)
+
+| Campo | Valor |
+|---|---|
+| Arquivo | `assets/animations/katana/katana_tsuki.res` (Animation do Godot, 37 quadros a 60 Hz) |
+| Origem | **Original do CYBLADE.** Poses-chave em código (`tools/blender/katana_tsuki_keys.py`), IK no Blender 4.5.10 sobre o esqueleto do UAL (CC0). Começa da pose do Kiriage aprovado. Regerar: `tools/build_katana_strike.ps1` |
+| Referências | Princípios de kenjutsu (tsuki, okuri-ashi, fumikomi). Nada copiado de Phantom Blade Zero ou Dinghai |
+| Licença | Do projeto |
+| Clipe genérico do H2 | Não é mais usado no combo (o golpe 3 provisório foi substituído) |

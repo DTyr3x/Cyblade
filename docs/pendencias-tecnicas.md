@@ -23,10 +23,12 @@ Itens registrados para acompanhamento. Nenhum bloqueia o Pull Request do Marco 1
 
 | # | Pendência | Impacto | Onde tratar |
 |---|---|---|---|
-| 10 | **Golpe 3 ainda é o provisório do H2** (clipe derivado do pacote). Golpes 1 (Kesa) e 2 (Kiriage) são autorais. O Tsuki definitivo substitui o provisório | Alta para a sensação de combate | Depois da aprovação do Kiriage: golpe 3 autoral no mesmo pipeline do Blender |
+| 10 | **Combo de 3 golpes autorais completo** (Kesa, Kiriage, Tsuki), aguardando a aprovação do Tsuki. Sem clipe do pacote no combo | Resolvida na implementação; depende do playtest | Playtest do PO |
 | 11 | **Pés escorregam no avanço dos golpes:** o clipe é no lugar e o avanço vem da cápsula (0,9 m nos golpes 1 e 2, 1,5 m no final) | Média | H2.1: sincronizar o avanço com os apoios ou usar clipes com deslocamento (root motion) |
 | 12 | **Pico de quadro de ~26 ms** (1 por execução em 2 de 4 execuções do playtest de combate) | Baixa | Perfilar com o profiler do Godot; suspeita de primeira compilação de pipeline |
 | 13 | **Katana procedural presa ao punho** sem ajuste fino de empunhadura por golpe; o clipe foi feito para outra arma | Média | H2.1 |
 | 14 | **Sons e efeitos provisórios** (sintetizados / primitivos) | Baixa | Marco de som e VFX |
 | 15 | **Alvo único sem IA e sem fim de vida:** só registra dano; sem morte | Esperado | Marco de inimigos |
 | 16 | **Desempenho medido com o Phantom Blade Zero aberto** (H2.2): FPS 129 a 144, p99 22 a 27 ms, não comparável com o H2/H2.1 | Baixa | Repetir `tools\playtest.ps1` com o jogo de referência fechado |
+| 17 | **Execução de playtest em janela terminou sem gravar resultados** (1 de 4 no H2.3), sem estourar o tempo e sem causa conhecida; repetida, concluiu. Execuções em janela também já travaram em H1 e em capturas (HUD/painéis) | Baixa | Usar `tools\run_with_timeout.ps1` (encerra só o PID iniciado); investigar com o vigia do playtest |
+| 18 | **Desempenho do H2.3 medido com o Phantom Blade Zero aberto** | Baixa | Repetir `tools\playtest.ps1` com o jogo de referência fechado |
