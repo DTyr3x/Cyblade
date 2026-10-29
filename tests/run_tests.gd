@@ -2053,6 +2053,14 @@ func _test_c1_play() -> void:
 	_check(_player.vitals.health == h0, "esquiva com i-frames escapa do golpe do Instrutor")
 	ins.enabled = false
 	await _seconds(0.5)
+	# Defesa acionada sem evento de entrada (controle virtual, Input.action_press) também funciona.
+	await _reset_player(Vector3(-25, 0.05, 25), -PI / 2.0)
+	await _seconds(0.3)
+	Input.action_press("defend")
+	await _ticks(2)
+	_check(_player.state == Player.State.GUARD and df.perfect_open(CombatClock.time), "defesa por Input.action_press: entra na guarda e abre a janela")
+	Input.action_release("defend")
+	await _seconds(0.5)
 	# Golpes aprovados intactos.
 	_check(FileAccess.get_sha256("res://assets/animations/katana/katana_kesa.res") == KESA_APPROVED_SHA256 and FileAccess.get_sha256("res://assets/animations/katana/katana_kiriage.res") == KIRIAGE_APPROVED_SHA256, "Kesa e Kiriage aprovados intactos depois do C1")
 	await _reset_player(Vector3(-25, 0.05, 25), -PI / 2.0)
