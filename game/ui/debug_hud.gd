@@ -5,7 +5,7 @@ extends CanvasLayer
 
 const REFRESH_SECONDS := 0.1
 const RECENT_FRAMES := 240
-const HINT_TEXT := "Teclado: WASD mover · Espaço esquiva · Q/E ou botão direito+mouse girar câmera · R centralizar · 1/2/3 enquadramento · F3 HUD · Esc sair\nGamepad: stick esq. mover · B esquiva · stick dir. girar câmera · R3 centralizar · ←/→ enquadramento · Back HUD"
+const HINT_TEXT := "Teclado: WASD mover · J ou mouse esq. atacar · Espaço esquiva · Q/E ou botão direito+mouse girar câmera · R centralizar · 1/2/3 enquadramento · F3 HUD · Esc sair\nGamepad: stick esq. mover · X atacar · B esquiva · stick dir. girar câmera · R3 centralizar · ←/→ enquadramento · Back HUD"
 
 var camera_rig: CameraRig
 var player: Player
