@@ -5,7 +5,7 @@ extends CanvasLayer
 
 const REFRESH_SECONDS := 0.1
 const RECENT_FRAMES := 240
-const HINT_TEXT := "Teclado: WASD mover · J ou mouse esq. atacar · Espaço esquiva · Q/E ou botão direito+mouse girar câmera · R centralizar · 1/2/3 enquadramento · F3 HUD · Esc sair\nGamepad: stick esq. mover · X atacar · B esquiva · stick dir. girar câmera · R3 centralizar · ←/→ enquadramento · Back HUD"
+const HINT_TEXT := "Teclado: WASD mover · J ou mouse esq. atacar · K defesa · Espaço esquiva · Q/E ou botão direito+mouse girar câmera · R centralizar · 1/2/3 enquadramento · F3 HUD · Esc sair\nGamepad: stick esq. mover · X atacar · LB defesa · B esquiva · stick dir. girar câmera · R3 centralizar · ←/→ enquadramento · Back HUD"
 
 var camera_rig: CameraRig
 var player: Player
@@ -70,9 +70,33 @@ func _combat_text() -> String:
 	var name_s := String(c.current.id) if c.current != null and c.is_attacking() else "-"
 	var line := "Combate: %s [%s] t %.2f s  buffer %s  acertos %d  erros %d" % [name_s, phase, c.time, "sim" if c.has_buffered_attack() else "não", d.total_hits, d.total_misses]
 	for e in d.event_log.slice(maxi(d.event_log.size() - 3, 0)):
-		line += "
-  · %s %s golpe#%s%s" % [e.get("event"), e.get("strike"), e.get("swing"), (" dano %.0f" % e["damage"]) if e.has("damage") else ""]
+		line += "\n  · %s %s golpe#%s%s" % [e.get("event"), e.get("strike"), e.get("swing"), (" dano %.0f" % e["damage"]) if e.has("damage") else ""]
+	line += "\n" + _defense_text()
 	return line
+
+
+## Defesa (C1): estado, último resultado com o desvio em ms, vida de treino e contadores.
+func _defense_text() -> String:
+	var df := player.defense
+	var now := CombatClock.time
+	var names := ["PARRY", "DEFESA", "GOLPE RECEBIDO"]
+	var last := "-"
+	if df.last_result >= 0:
+		last = "%s %+d ms" % [names[df.last_result], int(round(df.last_offset * 1000.0))]
+		if df.last_result == DefenseController.Result.HIT and df.last_late_by >= 0.0:
+			last += " (apertou %d ms tarde)" % int(round(df.last_late_by * 1000.0))
+	var flags := ""
+	if df.perfect_open(now):
+		flags += " [janela]"
+	if df.in_lockout(now):
+		flags += " [parry bloqueado: em falso]"
+	var v := player.vitals
+	var ins_s := ""
+	var main := get_parent()
+	if main != null and main.get("instructor") != null:
+		var ins: TrainingInstructor = main.get("instructor")
+		ins_s = "  Instrutor: %s  pressão de postura %.0f" % [TrainingInstructor.Phase.keys()[ins.phase], ins.posture_pressure]
+	return "Defesa: %s%s  último: %s  em falso: %d\nVida %.0f  Energia Neural %.0f%s" % ["GUARDA" if player.state == Player.State.GUARD else "-", flags, last, df.whiff_count, v.health, v.neural_energy, ins_s]
 
 
 func player_screen_height_percent() -> float:
