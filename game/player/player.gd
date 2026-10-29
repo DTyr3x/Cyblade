@@ -179,11 +179,14 @@ func _try_start_attack() -> bool:
 
 
 func _on_strike_started(data: StrikeData, index: int, _swing: int) -> void:
-	visual.play_strike(data, index)
+	visual.play_strike(data, index, combat.chained_from, combat.chained_from_clip_time)
 	_aim_for_strike(data)
 
 
 func _on_strike_ended(_data: StrikeData, _completed: bool) -> void:
+	# Num encadeamento o corpo não volta à locomoção entre os dois golpes: o próximo `play_strike` assume.
+	if combat.chaining:
+		return
 	visual.end_strike()
 
 

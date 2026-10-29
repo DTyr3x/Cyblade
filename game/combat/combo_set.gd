@@ -6,6 +6,8 @@ extends Resource
 const DEFAULT_PATH := "res://game/data/katana_combo.tres"
 ## Clipe autoral do golpe 1 (gerado por tools/build_katana_strike.ps1).
 const KESA_CLIP := "res://assets/animations/katana/katana_kesa.res"
+## Clipe autoral do golpe 2 (tools/build_katana_strike.ps1).
+const KIRIAGE_CLIP := "res://assets/animations/katana/katana_kiriage.res"
 
 @export var weapon_family: StringName = WeaponStance.KATANA
 @export var strikes: Array[StrikeData] = []
@@ -53,14 +55,31 @@ static func katana_default() -> ComboSet:
 	s1.damage = 10.0
 	s1.knockback = 0.15
 
+	# Golpe 2 (H2.2): "Kiriage de retorno", animação autoral que NASCE da pose do Kesa no quadro 17
+	# (tools/blender/katana_kiriage_keys.py). Quadros de 60 Hz: preparação 0-7, contato 8-13,
+	# encadeia 17, livre 20, fim 30.
 	var s2 := StrikeData.new()
-	s2.id = &"corte_reverso"
-	s2.display_name = "Corte reverso"
-	s2.mirrored = true
-	s2.speed = 1.85
+	s2.id = &"kiriage_de_retorno"
+	s2.display_name = "Kiriage de retorno"
+	s2.clip_resource = load(KIRIAGE_CLIP) as Animation
+	s2.authored_grip = true
+	s2.seamless_chain = true
+	s2.sync_swish = true
+	s2.clip_from = 0.0
+	s2.clip_to = 30.0 / 60.0
+	s2.speed = 1.0
+	s2.active_start = 8.0 / 60.0
+	s2.active_end = 13.0 / 60.0
+	s2.chain_open = 17.0 / 60.0
+	s2.dodge_cancel_from = 3.0 / 60.0
+	s2.move_cancel_from = 20.0 / 60.0
+	s2.advance_distance = 0.6
+	s2.advance_start = 2.0 / 60.0
+	s2.advance_end = 12.0 / 60.0
+	s2.turn_lock = 5.0 / 60.0
 	s2.reaction = StrikeData.Reaction.LIGHT_RIGHT
 	s2.damage = 10.0
-	s2.hitstop = 0.05
+	s2.hitstop = 0.06
 	s2.knockback = 0.15
 
 	var s3 := StrikeData.new()

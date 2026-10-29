@@ -144,7 +144,16 @@ func _on_strike_started(data: StrikeData, index: int, _swing: int) -> void:
 		_swish.stream = _swish_streams[index % _swish_streams.size()]
 		# O som do corte começa na preparação e acompanha o ritmo do golpe.
 		_swish.pitch_scale = data.speed / 1.5
-		_swish.play(0.0)
+		if data.sync_swish:
+			# Atrasa o som para o pico coincidir com o meio da janela de contato.
+			var mid := (data.active_start + data.active_end) * 0.5 / data.speed
+			var delay := maxf(mid - _swish.stream.get_length() * 0.5 / _swish.pitch_scale, 0.0)
+			var swing := controller.swing_id
+			get_tree().create_timer(delay).timeout.connect(func() -> void:
+				if controller.swing_id == swing and controller.is_attacking():
+					_swish.play(0.0))
+		else:
+			_swish.play(0.0)
 
 
 func _on_strike_ended(_data: StrikeData, _completed: bool) -> void:

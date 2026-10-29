@@ -15,6 +15,11 @@ enum Reaction { LIGHT_LEFT, LIGHT_RIGHT, HEAVY }
 @export var clip_resource: Animation
 ## Empunhadura de golpe: a lâmina sai pelo polegar e as duas mãos seguram o cabo (clipes autorais).
 @export var authored_grip := false
+## Golpe encadeado a partir de um golpe autoral: a animação troca de clipe dentro do mesmo OneShot,
+## sem refazer a mistura com a locomoção (o primeiro quadro é a pose final do golpe anterior).
+@export var seamless_chain := false
+## O som do corte é atrasado para o seu pico coincidir com o meio da janela de contato.
+@export var sync_swish := false
 ## Trecho do clipe de origem usado (s) e espelhamento esquerda/direita.
 @export var clip_from := 0.08
 @export var clip_to := 0.95

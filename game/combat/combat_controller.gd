@@ -31,6 +31,11 @@ var _since_end := 99.0
 var _next_index := 0
 var _hitstop := 0.0
 var _phase_before := Phase.NONE
+## Preenchidos durante a troca de um golpe por outro (encadeamento): quem escuta `strike_ended` e
+## `strike_started` sabe que o corpo não deve voltar à locomoção entre os dois.
+var chaining := false
+var chained_from: StrikeData = null
+var chained_from_clip_time := 0.0
 
 
 func _init(combo_set: ComboSet = null) -> void:
@@ -80,8 +85,13 @@ func try_start(can_act: bool) -> bool:
 
 func _start(i: int) -> void:
 	var finished_before := current
+	chained_from = null
 	if phase != Phase.NONE and finished_before != null:
+		chained_from = finished_before
+		chained_from_clip_time = clip_time()
+		chaining = true
 		strike_ended.emit(finished_before, true)
+		chaining = false
 	index = i
 	current = combo.strikes[i]
 	swing_id += 1
@@ -119,7 +129,10 @@ func start_hitstop(duration: float) -> void:
 
 ## Avança o relógio do combate. Devolve true se um golpe terminou por completo neste tick.
 func tick(delta: float) -> bool:
-	_buffer = maxf(_buffer - delta, 0.0)
+	# O buffer congela junto com o relógio do golpe durante o hitstop: sem isso, o congelamento do
+	# impacto consumiria o tempo de um aperto guardado e o encadeamento se perderia no acerto.
+	if not (phase != Phase.NONE and _hitstop > 0.0):
+		_buffer = maxf(_buffer - delta, 0.0)
 	if phase == Phase.NONE:
 		_since_end += delta
 		return false

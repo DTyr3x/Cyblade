@@ -34,6 +34,9 @@ const MAX_JOG_SCALE := 1.25
 ## Mistura do golpe sobre a locomoção (s): entrada rápida (o golpe responde), saída um pouco mais longa.
 const STRIKE_FADE_IN := 0.06
 const STRIKE_FADE_OUT := 0.12
+## Troca de clipe num encadeamento contínuo: mistura mínima (s) e máxima quando o encadeamento é tardio.
+const SEAMLESS_BLEND := 0.03
+const SEAMLESS_BLEND_MAX := 0.12
 
 ## Empunhadura nos golpes autorais: a lâmina sai pelo lado do polegar (+Z local da mão), como numa
 ## pegada real, em vez de continuar o antebraço (+Y, usado na corrida aprovada).
@@ -61,6 +64,7 @@ var _hit_freeze := false
 var _strike_blend := 0.0
 var _strike_authored_grip := false
 var _grip: Node3D
+var _sel_node: AnimationNodeTransition
 var _visual_yaw := 0.0
 var _yaw_ready := false
 
@@ -179,6 +183,7 @@ func _setup_tree(combo: ComboSet) -> void:
 	if combo != null and not combo.strikes.is_empty():
 		# Golpes: seletor de clipe -> escala de velocidade -> OneShot sobre a locomoção.
 		var sel := AnimationNodeTransition.new()
+		_sel_node = sel
 		sel.input_count = combo.strikes.size()
 		sel.xfade_time = 0.0
 		for i in combo.strikes.size():
@@ -249,15 +254,25 @@ func setup_strikes(combo: ComboSet) -> void:
 
 
 ## Inicia o clipe do golpe `index` (reinicia se já estava tocando outro).
-func play_strike(data: StrikeData, index: int) -> void:
+func play_strike(data: StrikeData, index: int, from_data: StrikeData = null, from_clip_time := 0.0) -> void:
 	if anim_tree == null or _strike_clips.is_empty():
 		return
+	# Encadeamento contínuo: os dois golpes são autorais e o corpo ainda está no golpe anterior.
+	# Troca o clipe dentro do mesmo OneShot (sem voltar à locomoção); o primeiro quadro do novo clipe
+	# é a pose do anterior no quadro de encadeamento, e o resíduo (encadeamento tardio) é suavizado.
+	var seamless := data.seamless_chain and from_data != null and from_data.authored_grip \
+			and _strike_active and bool(anim_tree["parameters/Strike/active"])
 	_strike_active = true
 	_strike_speed = data.speed
 	_strike_authored_grip = data.authored_grip
 	_hit_freeze = false
-	anim_tree["parameters/Sel/transition_request"] = "s%d" % index
 	anim_tree["parameters/StrikeScale/scale"] = data.speed
+	if seamless:
+		var late := maxf(from_clip_time - from_data.chain_open, 0.0)
+		_sel_node.xfade_time = clampf(SEAMLESS_BLEND + late * 0.8, SEAMLESS_BLEND, SEAMLESS_BLEND_MAX)
+		anim_tree["parameters/Sel/transition_request"] = "s%d" % index
+		return
+	anim_tree["parameters/Sel/transition_request"] = "s%d" % index
 	anim_tree["parameters/Strike/request"] = AnimationNodeOneShot.ONE_SHOT_REQUEST_ABORT
 	anim_tree["parameters/Strike/request"] = AnimationNodeOneShot.ONE_SHOT_REQUEST_FIRE
 
