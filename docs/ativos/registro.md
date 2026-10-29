@@ -76,3 +76,11 @@ Rastro, faíscas e clarão são feitos em código (malha dinâmica, `CPUParticle
 | Referências | Princípios de kenjutsu (tsuki, okuri-ashi, fumikomi). Nada copiado de Phantom Blade Zero ou Dinghai |
 | Licença | Do projeto |
 | Clipe genérico do H2 | Não é mais usado no combo (o golpe 3 provisório foi substituído) |
+
+## Pose de guarda e sons de defesa (C1)
+
+| Item | Origem | Licença |
+|---|---|---|
+| `assets/animations/katana/katana_guarda.res` | **Original do CYBLADE.** Pose estática por IK no Blender 4.5.10 (`tools/blender/katana_guard_keys.py`) sobre o esqueleto do UAL (CC0) | Do projeto |
+| Sons de parry, defesa, golpe recebido e sinal do Instrutor | **Sintetizados em código** (`game/combat/generated_sounds.gd`), provisórios | Do projeto |
+| Instrutor de treino | Corpo procedural em código (`game/combat/training_instructor.gd`) | Do projeto |

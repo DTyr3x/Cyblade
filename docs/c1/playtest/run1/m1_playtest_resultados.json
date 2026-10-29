@@ -1,0 +1,300 @@
+{
+	"combate": {
+		"acertos": 9,
+		"dano_total": 135.0,
+		"erros": 0
+	},
+	"defesa": {
+		"0": 2,
+		"1": 2
+	},
+	"dodges": [
+		{
+			"distance_m": 3.99,
+			"dodge_s": 0.241,
+			"total_s": 0.434
+		},
+		{
+			"distance_m": 3.95,
+			"dodge_s": 0.253,
+			"total_s": 0.438
+		},
+		{
+			"distance_m": 3.95,
+			"dodge_s": 0.237,
+			"total_s": 0.418
+		},
+		{
+			"distance_m": 3.95,
+			"dodge_s": 0.235,
+			"total_s": 0.415
+		},
+		{
+			"distance_m": 3.95,
+			"dodge_s": 0.234,
+			"total_s": 0.418
+		},
+		{
+			"distance_m": 3.95,
+			"dodge_s": 0.236,
+			"total_s": 0.425
+		},
+		{
+			"distance_m": 3.95,
+			"dodge_s": 0.238,
+			"total_s": 0.416
+		}
+	],
+	"driver": "vulkan",
+	"godot": "4.7.2-stable (official)",
+	"gpu": "NVIDIA GeForce RTX 5070 Ti",
+	"input": "simulada por script (teclado e gamepad), não é humano",
+	"physics_ticks": 120,
+	"player_screen_height_pct_chefe": 11.4915974934896,
+	"player_screen_height_pct_combate": 10.0394637496383,
+	"player_screen_height_pct_exploracao": 7.81758061161748,
+	"preset_switch_call_ms_chefe": 0.005,
+	"preset_switch_call_ms_combate": 0.004,
+	"preset_switch_call_ms_exploracao": 0.003,
+	"ramp_max_height_m": 4.1007342338562,
+	"renderer": "forward_plus",
+	"segments": {
+		"andar_teclado": {
+			"avg_fps": 207.689083371735,
+			"avg_ms": 4.81488956359895,
+			"cpu_avg_ms": 0.248228049078366,
+			"cpu_max_ms": 0.736000001430511,
+			"cpu_p99_ms": 0.507000029087067,
+			"frames": 815,
+			"frames_excluded_for_captures": 5,
+			"gpu_avg_ms": 0.493981708077396,
+			"gpu_max_ms": 15.1009998321533,
+			"gpu_p99_ms": 0.910000026226044,
+			"hitches_over_25ms": [],
+			"low01_fps": 62.3441427529455,
+			"low1_fps": 67.4536236865133,
+			"max_ms": 16.0399992018938,
+			"p50_ms": 1.50500005111098,
+			"p95_ms": 13.9910001307726,
+			"p99_ms": 14.8250004276633,
+			"seconds": 4.025605
+		},
+		"camera_chefe": {
+			"avg_fps": 210.429725854949,
+			"avg_ms": 4.75218031072905,
+			"cpu_avg_ms": 0.276140995129449,
+			"cpu_max_ms": 0.782999992370605,
+			"cpu_p99_ms": 0.53600001335144,
+			"frames": 843,
+			"frames_excluded_for_captures": 1,
+			"gpu_avg_ms": 0.509851894849002,
+			"gpu_max_ms": 15.9099998474121,
+			"gpu_p99_ms": 0.806999981403351,
+			"hitches_over_25ms": [
+				{
+					"at_s": 0.08,
+					"ms": 79.7
+				}
+			],
+			"low01_fps": 12.546737012594,
+			"low1_fps": 66.7022429580376,
+			"max_ms": 79.7019973397255,
+			"p50_ms": 1.55000004451722,
+			"p95_ms": 14.3360001966357,
+			"p99_ms": 14.9919996038079,
+			"seconds": 4.038364
+		},
+		"camera_combate": {
+			"avg_fps": 212.389823065348,
+			"avg_ms": 4.70832352307351,
+			"cpu_avg_ms": 0.241164512503301,
+			"cpu_max_ms": 0.938000023365021,
+			"cpu_p99_ms": 0.451999992132187,
+			"frames": 850,
+			"frames_excluded_for_captures": 1,
+			"gpu_avg_ms": 0.461621620189989,
+			"gpu_max_ms": 15.4029998779297,
+			"gpu_p99_ms": 0.785000026226044,
+			"hitches_over_25ms": [],
+			"low01_fps": 62.0886619544266,
+			"low1_fps": 64.4745313604107,
+			"max_ms": 16.1060001701117,
+			"p50_ms": 1.42400001641363,
+			"p95_ms": 14.5009998232126,
+			"p99_ms": 15.5100002884865,
+			"seconds": 4.089078
+		},
+		"camera_exploracao": {
+			"avg_fps": 212.076738442681,
+			"avg_ms": 4.71527432637444,
+			"cpu_avg_ms": 0.241105386590371,
+			"cpu_max_ms": 0.712999999523163,
+			"cpu_p99_ms": 0.485000014305115,
+			"frames": 853,
+			"frames_excluded_for_captures": 1,
+			"gpu_avg_ms": 0.419617095443069,
+			"gpu_max_ms": 0.694999992847443,
+			"gpu_p99_ms": 0.442999988794327,
+			"hitches_over_25ms": [
+				{
+					"at_s": 0.08,
+					"ms": 80.7
+				}
+			],
+			"low01_fps": 12.3955673321493,
+			"low1_fps": 66.1813367024487,
+			"max_ms": 80.6740000844002,
+			"p50_ms": 1.36100000236183,
+			"p95_ms": 14.2710004001856,
+			"p99_ms": 15.1100000366569,
+			"seconds": 4.021567
+		},
+		"circulo_teclado": {
+			"avg_fps": 209.030100081586,
+			"avg_ms": 4.78400000578717,
+			"cpu_avg_ms": 0.274519411421874,
+			"cpu_max_ms": 0.88400000333786,
+			"cpu_p99_ms": 0.597000002861023,
+			"frames": 1694,
+			"frames_excluded_for_captures": 6,
+			"gpu_avg_ms": 0.458894118175787,
+			"gpu_max_ms": 12.1820001602173,
+			"gpu_p99_ms": 0.702000021934509,
+			"hitches_over_25ms": [],
+			"low01_fps": 76.4818374642269,
+			"low1_fps": 80.0897029404613,
+			"max_ms": 13.2710002362728,
+			"p50_ms": 1.75699999090284,
+			"p95_ms": 11.6210002452135,
+			"p99_ms": 12.4859996140003,
+			"seconds": 8.212331
+		},
+		"combate_katana": {
+			"avg_fps": 200.088181885551,
+			"avg_ms": 4.99779642443846,
+			"cpu_avg_ms": 0.292982161131073,
+			"cpu_max_ms": 0.962000012397766,
+			"cpu_p99_ms": 0.643999993801117,
+			"frames": 1901,
+			"frames_excluded_for_captures": 5,
+			"gpu_avg_ms": 0.494375656293422,
+			"gpu_max_ms": 14.1800003051758,
+			"gpu_p99_ms": 0.879999995231628,
+			"hitches_over_25ms": [],
+			"low01_fps": 64.2673513443695,
+			"low1_fps": 69.9839033515424,
+			"max_ms": 15.7510004937649,
+			"p50_ms": 1.78799999412149,
+			"p95_ms": 13.1780002266169,
+			"p99_ms": 14.2890000715852,
+			"seconds": 9.615932
+		},
+		"defesa_parry": {
+			"avg_fps": 207.146751143533,
+			"avg_ms": 4.82749545662482,
+			"cpu_avg_ms": 0.263308538126375,
+			"cpu_max_ms": 0.787999987602234,
+			"cpu_p99_ms": 0.545000016689301,
+			"frames": 1540,
+			"frames_excluded_for_captures": 6,
+			"gpu_avg_ms": 0.488397801620223,
+			"gpu_max_ms": 14.2399997711182,
+			"gpu_p99_ms": 0.779999971389771,
+			"hitches_over_25ms": [
+				{
+					"at_s": 0.39,
+					"ms": 28.7
+				}
+			],
+			"low01_fps": 65.4878833532833,
+			"low1_fps": 69.4347995962243,
+			"max_ms": 28.6740008741617,
+			"p50_ms": 1.53400003910065,
+			"p95_ms": 13.5989999398589,
+			"p99_ms": 14.402000233531,
+			"seconds": 7.555687
+		},
+		"esquivas": {
+			"avg_fps": 208.151731679012,
+			"avg_ms": 4.80418775252895,
+			"cpu_avg_ms": 0.259554661035858,
+			"cpu_max_ms": 1.00699996948242,
+			"cpu_p99_ms": 0.552999973297119,
+			"frames": 1486,
+			"frames_excluded_for_captures": 5,
+			"gpu_avg_ms": 0.482769281971303,
+			"gpu_max_ms": 13.7069997787476,
+			"gpu_p99_ms": 0.782000005245209,
+			"hitches_over_25ms": [
+				{
+					"at_s": 5.25,
+					"ms": 26.0
+				}
+			],
+			"low01_fps": 67.3491362529033,
+			"low1_fps": 73.9043658179364,
+			"max_ms": 26.0269995778799,
+			"p50_ms": 1.63700000848621,
+			"p95_ms": 12.703999876976,
+			"p99_ms": 13.5310003533959,
+			"seconds": 7.236706
+		},
+		"gamepad_simulado": {
+			"avg_fps": 207.157640573457,
+			"avg_ms": 4.82724169493234,
+			"cpu_avg_ms": 0.239407280792691,
+			"cpu_max_ms": 0.975000023841858,
+			"cpu_p99_ms": 0.479999989271164,
+			"frames": 873,
+			"frames_excluded_for_captures": 6,
+			"gpu_avg_ms": 0.438098975856692,
+			"gpu_max_ms": 1.0,
+			"gpu_p99_ms": 0.595000028610229,
+			"hitches_over_25ms": [],
+			"low01_fps": 62.8140697567622,
+			"low1_fps": 67.4308844028963,
+			"max_ms": 15.9200001507998,
+			"p50_ms": 1.46800000220537,
+			"p95_ms": 14.1150001436472,
+			"p99_ms": 14.8299997672439,
+			"seconds": 4.325607
+		},
+		"rampa_e_plataforma": {
+			"avg_fps": 208.78585363939,
+			"avg_ms": 4.78959652950039,
+			"cpu_avg_ms": 0.241456486174626,
+			"cpu_max_ms": 0.785000026226044,
+			"cpu_p99_ms": 0.499000012874603,
+			"frames": 1212,
+			"frames_excluded_for_captures": 6,
+			"gpu_avg_ms": 0.453973727468982,
+			"gpu_max_ms": 14.128999710083,
+			"gpu_p99_ms": 0.695999979972839,
+			"hitches_over_25ms": [],
+			"low01_fps": 64.4122376204885,
+			"low1_fps": 68.8800101407543,
+			"max_ms": 15.8300008624792,
+			"p50_ms": 1.50899996515363,
+			"p95_ms": 13.8750001788139,
+			"p99_ms": 14.5180001854897,
+			"seconds": 5.912045
+		}
+	},
+	"shots": [
+		"m1_01_andar.png",
+		"m1_02_circulo.png",
+		"m1_03_esquiva.png",
+		"m1_04_gamepad.png",
+		"m1_05_rampa.png",
+		"h2_01_combate_golpe.png",
+		"c1_01_parry.png",
+		"m1_06_camera_combate.png",
+		"m1_06_camera_exploracao.png",
+		"m1_06_camera_chefe.png"
+	],
+	"vsync_mode": 0,
+	"window": [
+		1920,
+		1080
+	]
+}

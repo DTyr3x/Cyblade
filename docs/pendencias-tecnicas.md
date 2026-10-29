@@ -32,3 +32,12 @@ Itens registrados para acompanhamento. Nenhum bloqueia o Pull Request do Marco 1
 | 16 | **Desempenho medido com o Phantom Blade Zero aberto** (H2.2): FPS 129 a 144, p99 22 a 27 ms, não comparável com o H2/H2.1 | Baixa | Repetir `tools\playtest.ps1` com o jogo de referência fechado |
 | 17 | **Execução de playtest em janela terminou sem gravar resultados** (1 de 4 no H2.3), sem estourar o tempo e sem causa conhecida; repetida, concluiu. Execuções em janela também já travaram em H1 e em capturas (HUD/painéis) | Baixa | Usar `tools\run_with_timeout.ps1` (encerra só o PID iniciado); investigar com o vigia do playtest |
 | 18 | **Desempenho do H2.3 medido com o Phantom Blade Zero aberto** | Baixa | Repetir `tools\playtest.ps1` com o jogo de referência fechado |
+
+## Pendências abertas pelo C1 (parry)
+
+| # | Pendência | Impacto | Onde tratar |
+|---|---|---|---|
+| 19 | **Lâmina e sinal do Instrutor pequenos na câmera alta** (a preparação em âmbar é legível) | Média | Depois do playtest do PO: aumentar a lâmina ou o brilho só no Instrutor |
+| 20 | **Sem animação de deflexão no parry** (pose de guarda estática) | Média | C1.x: clipe autoral curto de deflexão |
+| 21 | **Desempenho do C1 medido com o Phantom Blade Zero aberto** | Baixa | Repetir com o jogo fechado |
+| 22 | **Postura, Energia Neural e contra-ataque são só contadores** | Esperado | C2 / C3 |
