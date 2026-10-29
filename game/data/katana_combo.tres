@@ -1,23 +1,38 @@
 [gd_resource type="Resource" script_class="ComboSet" format=3]
 
-[ext_resource type="Script" path="res://game/combat/combo_set.gd" id="1_g1eqk"]
-[ext_resource type="Script" path="res://game/combat/strike_data.gd" id="2_2ijln"]
+[ext_resource type="Script" path="res://game/combat/combo_set.gd" id="1_2ijln"]
+[ext_resource type="Script" path="res://game/combat/strike_data.gd" id="2_3vimt"]
+[ext_resource type="Animation" path="res://assets/animations/katana/katana_kesa.res" id="3_w5hie"]
 
-[sub_resource type="Resource" id="Resource_3vimt"]
-script = ExtResource("2_2ijln")
-id = &"corte_diagonal"
-display_name = "Corte diagonal"
+[sub_resource type="Resource" id="Resource_ofyvb"]
+script = ExtResource("2_3vimt")
+id = &"kesa_avancado"
+display_name = "Kesa avançado"
+clip_resource = ExtResource("3_w5hie")
+authored_grip = true
+clip_from = 0.0
+clip_to = 0.55
+speed = 1.0
+active_start = 0.11666666666666667
+active_end = 0.21666666666666667
+chain_open = 0.2833333333333333
+dodge_cancel_from = 0.05
+move_cancel_from = 0.35
+advance_start = 0.05
+advance_end = 0.25
+turn_lock = 0.1
+hitstop = 0.06
 
-[sub_resource type="Resource" id="Resource_w5hie"]
-script = ExtResource("2_2ijln")
+[sub_resource type="Resource" id="Resource_2uwio"]
+script = ExtResource("2_3vimt")
 id = &"corte_reverso"
 display_name = "Corte reverso"
 mirrored = true
 speed = 1.85
 reaction = 1
 
-[sub_resource type="Resource" id="Resource_ofyvb"]
-script = ExtResource("2_2ijln")
+[sub_resource type="Resource" id="Resource_0fq5a"]
+script = ExtResource("2_3vimt")
 id = &"golpe_final"
 display_name = "Golpe final"
 clip_to = 1.35
@@ -37,5 +52,5 @@ reaction = 2
 camera_shake = 0.03
 
 [resource]
-script = ExtResource("1_g1eqk")
-strikes = Array[ExtResource("2_2ijln")]([SubResource("Resource_3vimt"), SubResource("Resource_w5hie"), SubResource("Resource_ofyvb")])
+script = ExtResource("1_2ijln")
+strikes = Array[ExtResource("2_3vimt")]([SubResource("Resource_ofyvb"), SubResource("Resource_2uwio"), SubResource("Resource_0fq5a")])

@@ -35,6 +35,10 @@ const MAX_JOG_SCALE := 1.25
 const STRIKE_FADE_IN := 0.06
 const STRIKE_FADE_OUT := 0.12
 
+## Empunhadura nos golpes autorais: a lâmina sai pelo lado do polegar (+Z local da mão), como numa
+## pegada real, em vez de continuar o antebraço (+Y, usado na corrida aprovada).
+const STRIKE_GRIP := Basis(Vector3.RIGHT, PI / 2.0)
+
 const TURN_LAG_TAU := 0.05
 ## Desvio visual máximo atrás da cápsula (graus), para giros de 180° não torcerem demais.
 const TURN_LAG_MAX_DEG := 60.0
@@ -55,6 +59,8 @@ var _strike_active := false
 var _strike_speed := 1.0
 var _hit_freeze := false
 var _strike_blend := 0.0
+var _strike_authored_grip := false
+var _grip: Node3D
 var _visual_yaw := 0.0
 var _yaw_ready := false
 
@@ -89,6 +95,8 @@ func update_pose(delta: float, velocity: Vector3, forward: Vector3, max_speed: f
 	var tau := STRIKE_FADE_IN * 0.5 if _strike_active else STRIKE_FADE_OUT * 0.5
 	_strike_blend = lerpf(_strike_blend, blend_target, MotionMath.smooth_alpha(delta, tau))
 	pose_modifier.set_strike_blend(_strike_blend)
+	if _grip != null:
+		_grip.basis = Basis.IDENTITY.slerp(STRIKE_GRIP, _strike_blend if _strike_authored_grip else 0.0)
 	if not _strike_clips.is_empty():
 		anim_tree["parameters/StrikeScale/scale"] = 0.02 if _hit_freeze else _strike_speed
 	var speed := Vector3(velocity.x, 0.0, velocity.z).length()
@@ -216,6 +224,8 @@ func _setup_katana() -> void:
 	skeleton.add_child(attach)
 	katana = Katana.build()
 	attach.add_child(katana)
+	# Empunhadura: identidade na locomoção (aprovada); gira para STRIKE_GRIP nos golpes autorais.
+	_grip = katana
 
 
 # --- Golpes -------------------------------------------------------------------------
@@ -228,7 +238,8 @@ func setup_strikes(combo: ComboSet) -> void:
 	_strike_clips.clear()
 	for i in combo.strikes.size():
 		var s := combo.strikes[i]
-		var clip := KatanaClips.derive(src, s.clip_from, s.clip_to, KatanaClips.Mirror.YZ_FLIP if s.mirrored else KatanaClips.Mirror.NONE)
+		var source := s.clip_resource if s.clip_resource != null else src
+		var clip := KatanaClips.derive(source, s.clip_from, s.clip_to, KatanaClips.Mirror.YZ_FLIP if s.mirrored else KatanaClips.Mirror.NONE)
 		var clip_name := StringName("Katana_%d" % i)
 		if lib.has_animation(clip_name):
 			lib.remove_animation(clip_name)
@@ -243,6 +254,7 @@ func play_strike(data: StrikeData, index: int) -> void:
 		return
 	_strike_active = true
 	_strike_speed = data.speed
+	_strike_authored_grip = data.authored_grip
 	_hit_freeze = false
 	anim_tree["parameters/Sel/transition_request"] = "s%d" % index
 	anim_tree["parameters/StrikeScale/scale"] = data.speed

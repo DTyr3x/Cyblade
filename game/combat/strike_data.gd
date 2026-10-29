@@ -11,7 +11,11 @@ enum Reaction { LIGHT_LEFT, LIGHT_RIGHT, HEAVY }
 @export var display_name := "Golpe"
 
 @export_group("Animação")
-## Trecho do clipe `Sword_Attack` usado (s do clipe original) e espelhamento esquerda/direita.
+## Clipe autoral próprio (ex.: gerado no Blender). Vazio = trecho do `Sword_Attack` do pacote UAL.
+@export var clip_resource: Animation
+## Empunhadura de golpe: a lâmina sai pelo polegar e as duas mãos seguram o cabo (clipes autorais).
+@export var authored_grip := false
+## Trecho do clipe de origem usado (s) e espelhamento esquerda/direita.
 @export var clip_from := 0.08
 @export var clip_to := 0.95
 @export var mirrored := false

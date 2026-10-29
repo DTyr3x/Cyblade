@@ -42,6 +42,7 @@ func _run() -> void:
 	await _test_humanoid()
 	await _test_h11()
 	await _test_h2()
+	await _test_h21()
 	print("== resultado: %d ok, %d falha(s) ==" % [_passed, _failed])
 	quit(1 if _failed > 0 else 0)
 
@@ -974,7 +975,7 @@ func _test_h2() -> void:
 	await _wait_until(func(): return not c.is_attacking(), 1.5)
 	_check(dummy.hits.size() == hits0 + 1, "golpe 1 acerta o boneco exatamente uma vez", "acertos %d" % (dummy.hits.size() - hits0))
 	_near(dummy.total_damage - dmg0, s1.damage, 0.001, "dano do golpe 1")
-	_check(dummy.hits.size() > hits0 and String(dummy.hits.back()["strike"]) == "corte_diagonal", "contato registrado com o nome do golpe")
+	_check(dummy.hits.size() > hits0 and String(dummy.hits.back()["strike"]) == String(s1.id), "contato registrado com o nome do golpe")
 
 	# Cadeia completa no boneco: sem dano duplicado.
 	await _seconds(0.8)
@@ -1105,5 +1106,90 @@ func _test_h2() -> void:
 		trail_max = maxi(trail_max, fx.trail_samples())
 	_check(trail_max >= 2, "rastro da katana é gerado durante o golpe", "%d amostras" % trail_max)
 	_check(fx._swish_streams.size() == 3 and fx._hit_heavy != null, "sons provisórios sintetizados prontos")
+	await _wait_until(func(): return not c.is_attacking(), 1.5)
+	await _seconds(0.5)
+
+
+# --- H2.1: golpe autoral "Kesa avançado" ------------------------------------------------
+
+## Posição de um osso no mundo (pose final, depois dos modificadores).
+func _bone_world(bone_name: String) -> Vector3:
+	var sk := _player.visual.skeleton
+	return sk.global_transform * sk.get_bone_global_pose(sk.find_bone(bone_name)).origin
+
+
+func _test_h21() -> void:
+	print("-- H2.1: golpe autoral Kesa avançado")
+	var c := _player.combat
+	var vis: HumanoidVisual = _player.visual
+	var sk := vis.skeleton
+	var s1 := c.combo.strikes[0]
+	_check(s1.clip_resource != null and s1.authored_grip, "golpe 1 usa clipe autoral próprio com empunhadura de duas mãos")
+	_check(vis.anim_player.has_animation(&"Katana_0") and absf(vis.anim_player.get_animation(&"Katana_0").length - s1.clip_length()) < 0.02, "clipe do golpe 1 carregado no AnimationPlayer", "%.3f s" % vis.anim_player.get_animation(&"Katana_0").length)
+	_check(absf(s1.advance_distance - 0.9) < 0.001 and absf(s1.advance_start - 3.0 / 60.0) < 0.001 and absf(s1.advance_end - 15.0 / 60.0) < 0.001, "avanço do golpe 1 igual ao autorado no Blender (0,9 m, quadros 3 a 15)")
+
+	# Medições durante o golpe (pose final da tela via skeleton_updated).
+	await _seconds(0.7)
+	await _reset_player(Vector3(-25, 0.05, 25), -PI / 2.0)
+	var samples: Array = []
+	var record := func() -> void:
+		if not c.is_attacking():
+			return
+		var inv := _player.global_transform.affine_inverse()
+		var seg := vis.blade_segment()
+		samples.append({
+			"t": c.time, "phase": c.phase,
+			"tip": inv * seg[1],
+			"pelvis_y": (sk.global_transform * sk.get_bone_global_pose(sk.find_bone("pelvis")).origin).y,
+			"hands": _bone_world("hand_r").distance_to(_bone_world("hand_l")),
+			"foot_r": _bone_world("foot_r"),
+			"grip": vis.katana.basis.get_rotation_quaternion().angle_to(Quaternion(HumanoidVisual.STRIKE_GRIP)),
+		})
+	sk.skeleton_updated.connect(record)
+	await _attack_tap()
+	await _wait_until(func(): return not c.is_attacking(), 1.5)
+	sk.skeleton_updated.disconnect(record)
+	_check(samples.size() > 20, "amostras do golpe 1", "%d" % samples.size())
+	var active := samples.filter(func(s): return s["phase"] == CombatController.Phase.ACTIVE)
+	_check(active.size() >= 3, "fase de contato amostrada", "%d" % active.size())
+	if active.size() >= 3:
+		var a0: Vector3 = active.front()["tip"]
+		var a1: Vector3 = active.back()["tip"]
+		# Espaço local do jogador: frente = -Z, esquerda = -X, cima = +Y.
+		_check(a0.y - a1.y > 0.4, "corte descendente: a ponta desce no contato", "%.2f m" % (a0.y - a1.y))
+		_check(a0.x - a1.x > 0.3, "corte diagonal: a ponta vai da direita para a esquerda", "%.2f m" % (a0.x - a1.x))
+		var max_gap := 0.0
+		for s: Dictionary in active:
+			max_gap = maxf(max_gap, s["hands"])
+		_check(max_gap < 0.2, "duas mãos no cabo durante o contato", "distância máx %.2f m" % max_gap)
+		var grip_err := 0.0
+		for s: Dictionary in active:
+			grip_err = maxf(grip_err, s["grip"])
+		_check(rad_to_deg(grip_err) < 10.0, "empunhadura de golpe ativa no contato", "%.1f°" % rad_to_deg(grip_err))
+	var start_pelvis: float = samples.front()["pelvis_y"]
+	var low_pelvis := INF
+	for s: Dictionary in samples:
+		low_pelvis = minf(low_pelvis, s["pelvis_y"])
+	_check(start_pelvis - low_pelvis > 0.05, "transferência de peso: o quadril desce no corte", "%.2f m" % (start_pelvis - low_pelvis))
+	# Pé da frente plantado depois do passo (quadros 10 a 20): não escorrega com o avanço da cápsula.
+	var planted := samples.filter(func(s): return s["t"] >= 10.0 / 60.0 and s["t"] <= 20.0 / 60.0)
+	var drift := 0.0
+	if planted.size() >= 2:
+		var p0: Vector3 = planted.front()["foot_r"]
+		for s: Dictionary in planted:
+			var p: Vector3 = s["foot_r"]
+			drift = maxf(drift, Vector2(p.x - p0.x, p.z - p0.z).length())
+	_check(planted.size() >= 2 and drift < 0.08, "pé da frente plantado durante o avanço (sem escorregar)", "deriva %.3f m" % drift)
+	await _seconds(0.3)
+	_check(vis.katana.basis.get_rotation_quaternion().angle_to(Quaternion.IDENTITY) < deg_to_rad(3.0), "depois do golpe a katana volta à empunhadura de corrida aprovada")
+
+	# Resposta: do aperto ao contato no boneco.
+	await _seconds(0.5)
+	await _reset_player(Vector3(0, 0.05, 5.4), 0.0)
+	await _seconds(0.5)
+	var hits0 := (_main.get("dummy") as TrainingDummy).hits.size()
+	await _attack_tap()
+	var to_hit := await _wait_until(func(): return (_main.get("dummy") as TrainingDummy).hits.size() > hits0, 0.6)
+	_check(to_hit >= 0.0 and to_hit + 2 * DT <= 0.20, "resposta: aperto → contato em até 0,20 s", "%.3f s" % (to_hit + 2 * DT))
 	await _wait_until(func(): return not c.is_attacking(), 1.5)
 	await _seconds(0.5)

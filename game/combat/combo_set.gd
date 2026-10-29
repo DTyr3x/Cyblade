@@ -4,6 +4,8 @@ extends Resource
 ## montar outros ComboSet (ou ramificações) sem tocar no controlador de combate.
 
 const DEFAULT_PATH := "res://game/data/katana_combo.tres"
+## Clipe autoral do golpe 1 (gerado por tools/build_katana_strike.ps1).
+const KESA_CLIP := "res://assets/animations/katana/katana_kesa.res"
 
 @export var weapon_family: StringName = WeaponStance.KATANA
 @export var strikes: Array[StrikeData] = []
@@ -27,14 +29,28 @@ static func load_default() -> ComboSet:
 ## Valores de partida dos 3 golpes (também gravados em `game/data/katana_combo.tres`).
 static func katana_default() -> ComboSet:
 	var set := ComboSet.new()
+	# Golpe 1 (H2.1): "Kesa avançado", animação autoral (tools/blender/author_katana_strike.py).
+	# Tempos em quadros de 60 Hz do clipe: preparação 0-6, contato 7-13, encadeia 17, livre 21.
 	var s1 := StrikeData.new()
-	s1.id = &"corte_diagonal"
-	s1.display_name = "Corte diagonal"
-	s1.mirrored = false
-	s1.speed = 1.8
+	s1.id = &"kesa_avancado"
+	s1.display_name = "Kesa avançado"
+	s1.clip_resource = load(KESA_CLIP) as Animation
+	s1.authored_grip = true
+	s1.clip_from = 0.0
+	s1.clip_to = 33.0 / 60.0
+	s1.speed = 1.0
+	s1.active_start = 7.0 / 60.0
+	s1.active_end = 13.0 / 60.0
+	s1.chain_open = 17.0 / 60.0
+	s1.dodge_cancel_from = 3.0 / 60.0
+	s1.move_cancel_from = 21.0 / 60.0
+	s1.advance_distance = 0.9
+	s1.advance_start = 3.0 / 60.0
+	s1.advance_end = 15.0 / 60.0
+	s1.turn_lock = 6.0 / 60.0
+	s1.hitstop = 0.06
 	s1.reaction = StrikeData.Reaction.LIGHT_LEFT
 	s1.damage = 10.0
-	s1.hitstop = 0.05
 	s1.knockback = 0.15
 
 	var s2 := StrikeData.new()
