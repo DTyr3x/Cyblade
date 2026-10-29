@@ -53,6 +53,7 @@ func _run() -> void:
 	await _segment("gamepad_simulado", 5.0, _gamepad)
 	await _segment("rampa_e_plataforma", 5.0, _ramp)
 	await _segment("combate_katana", 14.0, _combat)
+	await _segment("defesa_parry", 8.0, _defense)
 	for i in 3:
 		var names := ["combate", "exploracao", "chefe"]
 		await _segment("camera_" + names[i], 4.0, _preset_run.bind(i, names[i]))
@@ -239,6 +240,34 @@ func _combat() -> void:
 		"dano_total": dummy.total_damage - dmg0,
 		"erros": _player.hit_detector.total_misses,
 	}
+
+
+## C1: diante do Instrutor, alterna parry perfeito (aperto 0,07 s antes do contato) e defesa normal.
+func _defense() -> void:
+	var ins := main.get("instructor") as TrainingInstructor
+	ins.interval = 0.5
+	_teleport(ins.global_position + Vector3(0, 0.05, 1.7), 0.0)
+	var counts := {}
+	for i in 4:
+		while not (ins.phase == TrainingInstructor.Phase.WINDUP and ins.next_contact_time > 0.0):
+			await get_tree().process_frame
+		var tc := ins.next_contact_time
+		var perfect := i % 2 == 0
+		var press_at := tc - (0.07 if perfect else 0.3)
+		while CombatClock.time < press_at:
+			await get_tree().process_frame
+		Input.action_press("defend")
+		var n0 := ins.results.size()
+		while ins.results.size() == n0:
+			await get_tree().process_frame
+		if i == 0:
+			await _shot("c1_01_parry.png")
+		Input.action_release("defend")
+		var r := str(ins.results.back().get("result", -1))
+		counts[r] = counts.get(r, 0) + 1
+		_teleport(ins.global_position + Vector3(0, 0.05, 1.7), 0.0)
+	ins.enabled = false
+	_results["defesa"] = counts
 
 
 func _preset_run(index: int, label: String) -> void:
