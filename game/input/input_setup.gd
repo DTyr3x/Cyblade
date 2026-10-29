@@ -13,6 +13,7 @@ const BINDINGS := {
 	"move_down": {"keys": [KEY_S, KEY_DOWN], "pad_axes": [[JOY_AXIS_LEFT_Y, 1.0]]},
 	"dodge": {"keys": [KEY_SPACE, KEY_SHIFT], "pad_buttons": [JOY_BUTTON_B]},
 	"attack": {"keys": [KEY_J], "mouse_buttons": [MOUSE_BUTTON_LEFT], "pad_buttons": [JOY_BUTTON_X]},
+	"defend": {"keys": [KEY_K], "pad_buttons": [JOY_BUTTON_LEFT_SHOULDER]},
 	"camera_yaw_left": {"keys": [KEY_Q], "pad_axes": [[JOY_AXIS_RIGHT_X, -1.0]]},
 	"camera_yaw_right": {"keys": [KEY_E], "pad_axes": [[JOY_AXIS_RIGHT_X, 1.0]]},
 	"camera_reset": {"keys": [KEY_R], "pad_buttons": [JOY_BUTTON_RIGHT_STICK]},

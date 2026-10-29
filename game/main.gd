@@ -8,6 +8,9 @@ extends Node3D
 const PLAYTEST_SCRIPT := "res://tools/scripted_playtest.gd"
 ## Posição do boneco de treino, de frente para o ponto de partida do jogador.
 const DUMMY_POSITION := Vector3(0.0, 0.0, 3.5)
+## Posição do Instrutor (C1): longe o bastante do boneco e do ponto de partida para não atacar sem querer
+## (ele só ataca com o jogador a até 4 m).
+const INSTRUCTOR_POSITION := Vector3(7.0, 0.0, 3.5)
 
 var stats := FrameStats.new()
 var last_device := "nenhum"
@@ -15,6 +18,9 @@ var last_device := "nenhum"
 ## Boneco de treino (H2) e efeitos de combate.
 var dummy: TrainingDummy
 var effects: CombatEffects
+## Instrutor de treino que ataca (C1) e o feedback da defesa.
+var instructor: TrainingInstructor
+var defense_effects: DefenseEffects
 
 var _last_frame_usec := 0
 
@@ -47,10 +53,21 @@ func _build_combat() -> void:
 	effects.name = "CombateEfeitos"
 	add_child(effects)
 	effects.setup(player.combat, player.visual, player.hit_detector, camera_rig)
+	instructor = TrainingInstructor.new()
+	instructor.name = "Instrutor"
+	add_child(instructor)
+	instructor.global_position = INSTRUCTOR_POSITION
+	instructor.target = player
+	defense_effects = DefenseEffects.new()
+	defense_effects.name = "DefesaEfeitos"
+	add_child(defense_effects)
+	defense_effects.setup(player)
+	defense_effects.watch_instructor(instructor)
 
 
-func _physics_process(_delta: float) -> void:
-	# Roda antes da física do jogador (pai antes dos filhos).
+func _physics_process(delta: float) -> void:
+	# Roda antes da física do jogador e do Instrutor (pai antes dos filhos).
+	CombatClock.advance(delta)
 	player.move_yaw = camera_rig.yaw
 
 

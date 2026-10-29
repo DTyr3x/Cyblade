@@ -37,6 +37,11 @@ const STRIKE_FADE_OUT := 0.12
 ## Troca de clipe num encadeamento contínuo: mistura mínima (s) e máxima quando o encadeamento é tardio.
 const SEAMLESS_BLEND := 0.03
 const SEAMLESS_BLEND_MAX := 0.12
+## Guarda (C1): clipe autoral e tempos de entrada e saída da mistura (s).
+const GUARD_CLIP_PATH := "res://assets/animations/katana/katana_guarda.res"
+const GUARD_CLIP_NAME := &"Katana_Guarda"
+const GUARD_IN := 0.035
+const GUARD_OUT := 0.08
 
 ## Empunhadura nos golpes autorais: a lâmina sai pelo lado do polegar (+Z local da mão), como numa
 ## pegada real, em vez de continuar o antebraço (+Y, usado na corrida aprovada).
@@ -65,6 +70,14 @@ var _strike_blend := 0.0
 var _strike_authored_grip := false
 var _grip: Node3D
 var _sel_node: AnimationNodeTransition
+## Guarda (C1): mistura da pose de guarda no tronco e nos braços; as pernas seguem a locomoção.
+var _guard_target := 0.0
+var _guard_blend := 0.0
+var _has_guard := false
+var _freeze_left := 0.0
+var _armor: StandardMaterial3D
+var _body_flash := 0.0
+var _body_flash_color := Color(1, 0.1, 0.1)
 var _visual_yaw := 0.0
 var _yaw_ready := false
 
@@ -98,9 +111,14 @@ func update_pose(delta: float, velocity: Vector3, forward: Vector3, max_speed: f
 	var blend_target := 1.0 if _strike_active else 0.0
 	var tau := STRIKE_FADE_IN * 0.5 if _strike_active else STRIKE_FADE_OUT * 0.5
 	_strike_blend = lerpf(_strike_blend, blend_target, MotionMath.smooth_alpha(delta, tau))
-	pose_modifier.set_strike_blend(_strike_blend)
+	_guard_blend = lerpf(_guard_blend, _guard_target, MotionMath.smooth_alpha(delta, GUARD_IN if _guard_target > _guard_blend else GUARD_OUT))
+	if _has_guard:
+		anim_tree["parameters/Guard/blend_amount"] = _guard_blend
+	pose_modifier.set_strike_blend(maxf(_strike_blend, _guard_blend))
 	if _grip != null:
-		_grip.basis = Basis.IDENTITY.slerp(STRIKE_GRIP, _strike_blend if _strike_authored_grip else 0.0)
+		var grip_w := maxf(_strike_blend if _strike_authored_grip else 0.0, _guard_blend)
+		_grip.basis = Basis.IDENTITY.slerp(STRIKE_GRIP, grip_w)
+	_update_freeze_and_flash(delta)
 	if not _strike_clips.is_empty():
 		anim_tree["parameters/StrikeScale/scale"] = 0.02 if _hit_freeze else _strike_speed
 	var speed := Vector3(velocity.x, 0.0, velocity.z).length()
@@ -155,6 +173,7 @@ func effective_speed() -> float:
 
 func _setup_materials(model: Node) -> void:
 	var armor := StandardMaterial3D.new()
+	_armor = armor
 	armor.albedo_color = Color(0.20, 0.22, 0.28)
 	armor.metallic = 0.35
 	armor.roughness = 0.5
@@ -180,6 +199,20 @@ func _setup_tree(combo: ComboSet) -> void:
 	root.add_node("Loco", blend)
 	root.add_node("RunScale", AnimationNodeTimeScale.new())
 	root.connect_node("RunScale", 0, "Loco")
+	# Guarda: Blend2 com filtro (só coluna, cabeça e braços) entre a locomoção e a pose de guarda.
+	var base_out := "RunScale"
+	if _has_guard:
+		var guard_clip := AnimationNodeAnimation.new()
+		guard_clip.animation = GUARD_CLIP_NAME
+		root.add_node("GuardClip", guard_clip)
+		var guard := AnimationNodeBlend2.new()
+		guard.filter_enabled = true
+		for path: NodePath in _upper_body_paths():
+			guard.set_filter_path(path, true)
+		root.add_node("Guard", guard)
+		root.connect_node("Guard", 0, "RunScale")
+		root.connect_node("Guard", 1, "GuardClip")
+		base_out = "Guard"
 	if combo != null and not combo.strikes.is_empty():
 		# Golpes: seletor de clipe -> escala de velocidade -> OneShot sobre a locomoção.
 		var sel := AnimationNodeTransition.new()
@@ -200,11 +233,11 @@ func _setup_tree(combo: ComboSet) -> void:
 		shot.fadein_time = STRIKE_FADE_IN
 		shot.fadeout_time = STRIKE_FADE_OUT
 		root.add_node("Strike", shot)
-		root.connect_node("Strike", 0, "RunScale")
+		root.connect_node("Strike", 0, base_out)
 		root.connect_node("Strike", 1, "StrikeScale")
 		root.connect_node("output", 0, "Strike")
 	else:
-		root.connect_node("output", 0, "RunScale")
+		root.connect_node("output", 0, base_out)
 
 	if anim_tree == null:
 		anim_tree = AnimationTree.new()
@@ -250,6 +283,14 @@ func setup_strikes(combo: ComboSet) -> void:
 			lib.remove_animation(clip_name)
 		lib.add_animation(clip_name, clip)
 		_strike_clips.append(clip_name)
+	# Pose de guarda (C1), autoral: tools/blender/katana_guard_keys.py.
+	if ResourceLoader.exists(GUARD_CLIP_PATH):
+		var guard := load(GUARD_CLIP_PATH) as Animation
+		guard.loop_mode = Animation.LOOP_LINEAR
+		if lib.has_animation(GUARD_CLIP_NAME):
+			lib.remove_animation(GUARD_CLIP_NAME)
+		lib.add_animation(GUARD_CLIP_NAME, guard)
+		_has_guard = true
 	_setup_tree(combo)
 
 
@@ -306,3 +347,58 @@ func blade_segment(from := Katana.BLADE_START, to := Katana.BLADE_END) -> Array[
 	var axis := t.basis.y.normalized()
 	var scale := t.basis.y.length()
 	return [t.origin + axis * from * scale, t.origin + axis * to * scale]
+
+
+# --- Defesa (C1) -----------------------------------------------------------------------------
+
+## Pose de guarda ligada/desligada (a mistura é suave e rápida).
+func set_guard(on: bool) -> void:
+	_guard_target = 1.0 if on else 0.0
+
+
+func guard_blend() -> float:
+	return _guard_blend
+
+
+## Congela toda a animação do corpo por `duration` s (hitstop local do parry e da defesa).
+func freeze(duration: float) -> void:
+	_freeze_left = maxf(_freeze_left, duration)
+
+
+func is_frozen() -> bool:
+	return _freeze_left > 0.0
+
+
+## Clarão curto no corpo (golpe recebido em vermelho; parry em branco).
+func flash_body(color: Color, strength := 1.0) -> void:
+	_body_flash_color = color
+	_body_flash = strength
+
+
+func _update_freeze_and_flash(delta: float) -> void:
+	if _freeze_left > 0.0:
+		_freeze_left = maxf(_freeze_left - delta, 0.0)
+		anim_tree.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
+	elif anim_tree.callback_mode_process != AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_IDLE:
+		anim_tree.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_IDLE
+	if _armor != null:
+		_body_flash = maxf(_body_flash - delta * 7.0, 0.0)
+		if _body_flash > 0.0:
+			_armor.emission = Color(0.10, 0.14, 0.2).lerp(_body_flash_color, minf(_body_flash, 1.0))
+			_armor.emission_energy_multiplier = 0.6 + 1.6 * _body_flash
+		else:
+			_armor.emission = Color(0.10, 0.14, 0.2)
+			_armor.emission_energy_multiplier = 0.6
+
+
+## Caminhos dos ossos da coluna para cima (inclui cabeça e braços): a guarda só mexe nesses.
+func _upper_body_paths() -> Array[NodePath]:
+	var out: Array[NodePath] = []
+	var root_bone := skeleton.find_bone("spine_01")
+	for i in skeleton.get_bone_count():
+		var b := i
+		while b >= 0 and b != root_bone:
+			b = skeleton.get_bone_parent(b)
+		if b == root_bone:
+			out.append(NodePath("Armature/Skeleton3D:" + skeleton.get_bone_name(i)))
+	return out
