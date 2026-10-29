@@ -1,6 +1,6 @@
 # H2.2: Kiriage de retorno (segundo golpe autoral)
 
-Status: **implementado e testado por script. NÃO aprovado: depende do playtest humano do PO.**
+Status: **APROVADO PELO PO após playtest humano (8 de 8 critérios, sem ressalvas).** Ver "Aprovação do PO" no fim deste documento.
 Branch `feat/h2-combate-katana` (PR #3, sem merge). O Kesa avançado, aprovado sem ressalvas, **não foi alterado** (clipe com o mesmo SHA-256, mesmos tempos e dados). O terceiro golpe continua o provisório do H2; o Tsuki definitivo não foi feito.
 
 ## 1. Aprovação do Kesa
@@ -110,3 +110,26 @@ Ataque com **J**, mouse esquerdo ou **X**. Esquiva: Espaço. **F3** mostra o est
 6. **Pés:** algum deslize incômodo no passo do Kiriage?
 7. **Esquiva:** esquivar no meio do Kiriage responde e continua fluido? E correr logo depois?
 8. **Final:** a pose final (guarda média-alta, lâmina para a frente) parece pronta para um terceiro golpe?
+
+## Aprovação do PO
+
+O PO realizou o playtest humano do **Kiriage de retorno**: **8 de 8 critérios aprovados, sem ressalvas** (29/10/2026).
+
+| Critério | Resultado |
+|---|---|
+| Continuidade Kesa → Kiriage | Aprovado |
+| Ausência de saltos da lâmina ou das mãos | Aprovado |
+| Naturalidade do corpo e identidade própria do Kiriage | Aprovado |
+| Resposta ao comando | Aprovado |
+| Sensação de impacto | Aprovado |
+| Movimento dos pés | Aprovado |
+| Transição para esquiva e corrida | Aprovado |
+| Postura final preparada para o próximo golpe | Aprovado |
+
+Decisão: **Kesa e Kiriage aprovados; não solicitar nem executar novos ajustes nesses dois golpes sem necessidade comprovada.** Estado aprovado:
+
+- `assets/animations/katana/katana_kesa.res`: SHA-256 `2a7cb0b2da3d2a9360e6b951dabd394ffd8124f3bf592790a5f87d33d0ae8e45`
+- `assets/animations/katana/katana_kiriage.res`: SHA-256 `b7a98a44fda967ed75ff0e6784221a77baf0dcb7e76ac04b1116e2e77b22361c`
+- tempos e dados dos golpes 1 e 2 em `game/data/katana_combo.tres`.
+
+Próximo: H2.3, Tsuki de passo duplo (`docs/h2-3-tsuki.md`).
