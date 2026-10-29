@@ -8,6 +8,8 @@ const DEFAULT_PATH := "res://game/data/katana_combo.tres"
 const KESA_CLIP := "res://assets/animations/katana/katana_kesa.res"
 ## Clipe autoral do golpe 2 (tools/build_katana_strike.ps1).
 const KIRIAGE_CLIP := "res://assets/animations/katana/katana_kiriage.res"
+## Clipe autoral do golpe 3 (tools/build_katana_strike.ps1).
+const TSUKI_CLIP := "res://assets/animations/katana/katana_tsuki.res"
 
 @export var weapon_family: StringName = WeaponStance.KATANA
 @export var strikes: Array[StrikeData] = []
@@ -82,24 +84,31 @@ static func katana_default() -> ComboSet:
 	s2.hitstop = 0.06
 	s2.knockback = 0.15
 
+	# Golpe 3 (H2.3): "Tsuki de passo duplo", finalizador autoral que NASCE da pose do Kiriage no quadro 17
+	# (tools/blender/katana_tsuki_keys.py). Quadros de 60 Hz: coil 0-6, passo 1 6-13, passo 2 e
+	# estocada 13-17, extensão 17-22, encadeia 28, livre 26, fim 36.
 	var s3 := StrikeData.new()
-	s3.id = &"golpe_final"
-	s3.display_name = "Golpe final"
-	s3.clip_from = 0.08
-	s3.clip_to = 1.35
-	s3.speed = 1.35
-	s3.active_start = 0.26
-	s3.active_end = 0.50
-	s3.chain_open = 0.78
-	s3.dodge_cancel_from = 0.10
-	s3.move_cancel_from = 0.85
-	s3.advance_distance = 1.5
-	s3.advance_start = 0.12
-	s3.advance_end = 0.46
-	s3.turn_lock = 0.24
+	s3.id = &"tsuki_de_passo_duplo"
+	s3.display_name = "Tsuki de passo duplo"
+	s3.clip_resource = load(TSUKI_CLIP) as Animation
+	s3.authored_grip = true
+	s3.seamless_chain = true
+	s3.sync_swish = true
+	s3.clip_from = 0.0
+	s3.clip_to = 36.0 / 60.0
+	s3.speed = 1.0
+	s3.active_start = 14.0 / 60.0
+	s3.active_end = 21.0 / 60.0
+	s3.chain_open = 28.0 / 60.0
+	s3.dodge_cancel_from = 3.0 / 60.0
+	s3.move_cancel_from = 26.0 / 60.0
+	s3.advance_distance = 1.2
+	s3.advance_start = 4.0 / 60.0
+	s3.advance_end = 20.0 / 60.0
+	s3.turn_lock = 8.0 / 60.0
 	s3.damage = 25.0
-	s3.hitstop = 0.09
-	s3.knockback = 0.55
+	s3.hitstop = 0.10
+	s3.knockback = 0.8
 	s3.reaction = StrikeData.Reaction.HEAVY
 	s3.camera_shake = 0.03
 
