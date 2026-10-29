@@ -77,6 +77,23 @@ KEYS = {
     "foot_l_yaw": [(0, 25), (12, 25), (18, 15), (33, 15)],
 }
 GRIP_GAP = 0.11   # distância entre as mãos no cabo (m)
+KESA_KEYS = KEYS
+KESA_PARAMS = (FRAMES, ADV_DIST, ADV_START, ADV_END)
+
+
+def kesa_pose_at(frame):
+    """Pose do Kesa (APROVADO, não alterar) no quadro `frame`, no espaço da cápsula (avanço já
+    subtraído). É o ponto de partida do Kiriage: a primeira pose dele é exatamente esta."""
+    dist, start, end = KESA_PARAMS[1], KESA_PARAMS[2], KESA_PARAMS[3]
+    s = min(max((frame - start) / (end - start), 0.0), 1.0)
+    a = dist * s * s * (3 - 2 * s)
+    out = {}
+    for ch in KESA_KEYS:
+        v = interp(ch, frame)
+        if ch in ("pelvis_pos", "hand_r", "foot_r", "foot_l"):
+            v = (v[0], v[1] + a, v[2])
+        out[ch] = v
+    return out
 
 
 def interp(channel, f):
@@ -120,8 +137,14 @@ def rot_about(m4, axis_mat, pivot):
 
 
 def main():
+    global KEYS, FRAMES, ADV_DIST, ADV_START, ADV_END
     argv = sys.argv[sys.argv.index("--") + 1:]
     glb, out_path = argv[0], argv[1]
+    clip = argv[2] if len(argv) > 2 else "kesa"
+    if clip == "kiriage":
+        sys.path.insert(0, __import__("os").path.dirname(__import__("os").path.abspath(__file__)))
+        import katana_kiriage_keys
+        KEYS, FRAMES, ADV_DIST, ADV_START, ADV_END = katana_kiriage_keys.build(kesa_pose_at(katana_kiriage_keys.JOIN_FRAME))
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.ops.import_scene.gltf(filepath=glb, bone_heuristic="FORTUNE")
     arm = next(o for o in bpy.data.objects if o.type == "ARMATURE")
