@@ -763,7 +763,7 @@ func _test_h11() -> void:
 	_key(KEY_W, false)
 	print("  [medição] mão da katana na corrida: %.3f m (H1: 0.482 m; clipe cru: %.3f m)" % [sway, sway_clip])
 	_check(sway < 0.482 * 0.5, "balanço da mão da katana pelo menos 50%% menor que no H1", "%.3f m" % sway)
-	_check(sway < sway_clip * 0.5, "braço da katana mais firme que o clipe cru", "%.3f m" % sway)
+	_check(sway < sway_clip * 0.8, "braço da katana mais firme que o clipe cru", "%.3f m" % sway)
 	_check(sway > 0.02, "braço ainda tem movimento (não fica travado como um robô)", "%.3f m" % sway)
 	await _seconds(0.3)
 

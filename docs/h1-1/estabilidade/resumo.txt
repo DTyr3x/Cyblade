@@ -1,0 +1,5 @@
+﻿execuÃ§Ã£o 1 : ok (saÃ­da ) | Ãºltimo trecho concluÃ­do: camera_chefe | 
+execuÃ§Ã£o 2 : ok (saÃ­da ) | Ãºltimo trecho concluÃ­do: camera_chefe | 
+execuÃ§Ã£o 3 : ok (saÃ­da ) | Ãºltimo trecho concluÃ­do: camera_chefe | 
+execuÃ§Ã£o 4 : ok (saÃ­da ) | Ãºltimo trecho concluÃ­do: camera_chefe | 
+execuÃ§Ã£o 5 : ok (saÃ­da ) | Ãºltimo trecho concluÃ­do: camera_chefe | 

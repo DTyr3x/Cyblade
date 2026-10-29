@@ -9,6 +9,9 @@ extends SkeletonModifier3D
 
 ## Frente do esqueleto no espaço do modelo (o glTF do pacote aponta para +Z).
 const MODEL_FORWARD := Vector3(0, 0, 1)
+## Constante de tempo (s) da referência lenta do peito usada pelo braço armado.
+const CHEST_REF_TAU := 0.25
+const CHEST_REF_TAU_FAST := 0.05
 
 @export_group("Inclinação")
 ## Inclinação lateral máxima nas curvas (graus).
@@ -42,6 +45,11 @@ var _lean_fwd := 0.0
 var _lean_side := 0.0
 ## Desvio de giro (rad): quanto o quadril visual está atrás da frente da cápsula.
 var _turn_offset := 0.0
+var _dt := 0.0083
+var _prev_ratio := 0.0
+var _chest_ref_tau := 0.4
+var _chest_ref := Quaternion.IDENTITY
+var _chest_ref_ready := false
 var _prev_forward := Vector3.FORWARD
 var _bones := {}
 ## Poses globais calculadas por nós a partir das poses locais (evita forçar o Skeleton3D a
@@ -50,12 +58,18 @@ var _cache := {}
 
 
 func set_motion(delta: float, velocity: Vector3, forward: Vector3, max_speed: float, dodging: bool) -> void:
+	_dt = delta
 	var dash_tau := dash_attack_tau if dodging else dash_release_tau
 	_dash_amount = lerpf(_dash_amount, 1.0 if dodging else 0.0, MotionMath.smooth_alpha(delta, dash_tau))
 	var speed := Vector3(velocity.x, 0.0, velocity.z).length()
 	var ratio := clampf(speed / maxf(max_speed, 0.01), 0.0, 1.2)
 	var run_target := clampf((ratio - run_start_ratio) / (run_full_ratio - run_start_ratio), 0.0, 1.0)
 	_run_amount = lerpf(_run_amount, run_target, MotionMath.smooth_alpha(delta, posture_tau))
+	# Referência do peito: lenta em regime (tira o balanço da passada), rápida enquanto a velocidade
+	# muda (a inclinação do tronco muda junto e o braço não pode ficar para trás dela).
+	var accel := absf(ratio - _prev_ratio) / maxf(delta, 0.0001)
+	_prev_ratio = ratio
+	_chest_ref_tau = lerpf(CHEST_REF_TAU, CHEST_REF_TAU_FAST, clampf(accel / 1.5, 0.0, 1.0))
 
 	var fwd_target := deg_to_rad(stance.lean_forward_deg) * minf(ratio, 1.0)
 	_lean_fwd = lerpf(_lean_fwd, fwd_target, MotionMath.smooth_alpha(delta, lean_tau))
@@ -89,7 +103,7 @@ func _process_modification() -> void:
 		return
 	_cache.clear()
 	if _bones.is_empty():
-		for n in ["pelvis", "spine_01", "spine_02", "spine_03", "upperarm_r", "lowerarm_r", "hand_r"]:
+		for n in ["pelvis", "spine_01", "spine_02", "spine_03", "upperarm_r", "lowerarm_r", "hand_r", "upperarm_l"]:
 			_bones[n] = sk.find_bone(n)
 	# Tronco: o ângulo total é distribuído pela coluna; o giro (yaw) é desfeito em parte pelo peito,
 	# que lidera enquanto o quadril (nó visual) acompanha.
@@ -99,6 +113,7 @@ func _process_modification() -> void:
 		var lean := _lean_fwd + deg_to_rad(dash_lean_deg) * _dash_amount
 		var q := Quaternion(Vector3.UP, -_turn_offset * torso_lead * twist[n] / 0.7) * Quaternion(Vector3.RIGHT, lean * share[n]) * Quaternion(MODEL_FORWARD, _lean_side * share[n])
 		_rotate_model_space(sk, _bones[n], q)
+	_update_chest_ref(sk)
 	# Braço da katana para trás: o braço é conduzido para uma direção-alvo (cai rumo à postura
 	# de espadachim conforme `_run_amount`), em vez de somar um desvio ao balanço do clipe.
 	var arm_w := maxf(maxf(_run_amount, _dash_amount), stance.idle_amount)
@@ -111,11 +126,23 @@ func _process_modification() -> void:
 		_aim_bone(sk, _bones["lowerarm_r"], _bones["hand_r"], _chest_dir(sk, chest, stance.fore_dir), arm_w)
 
 
-## Direção-alvo (definida para o peito em repouso) levada para a pose atual do peito, então o
-## braço acompanha o tronco em vez de balançar em relação a ele.
+## Direção-alvo levada junto com as oscilações do peito, então o braço acompanha o tronco
+## em vez de balançar em relação a ele.
 func _chest_dir(sk: Skeleton3D, chest: int, dir: Vector3) -> Vector3:
-	var rest := sk.get_bone_global_rest(chest).basis
-	return (_global(sk, chest).basis * (rest.inverse() * dir.normalized())).normalized()
+	# Peito atual contra o peito "de referência" (média lenta, ~1 passada): o braço acompanha as
+	# oscilações rápidas do tronco, mas a inclinação média da corrida não o arrasta para cima.
+	var cur := _global(sk, chest).basis.get_rotation_quaternion()
+	return (cur * _chest_ref.inverse()) * dir.normalized()
+
+
+## Referência do peito: média lenta da orientação.
+func _update_chest_ref(sk: Skeleton3D) -> void:
+	var cur := _global(sk, _bones["spine_03"]).basis.get_rotation_quaternion()
+	if not _chest_ref_ready:
+		_chest_ref = cur
+		_chest_ref_ready = true
+	else:
+		_chest_ref = _chest_ref.slerp(cur, MotionMath.smooth_alpha(_dt, _chest_ref_tau))
 
 
 ## Gira o osso (em torno da sua origem) para que o vetor osso->filho aponte para `target_dir`
