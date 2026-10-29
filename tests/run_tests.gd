@@ -46,6 +46,8 @@ func _run() -> void:
 	await _test_h22()
 	await _test_h22_buffer_hitstop()
 	await _test_h23()
+	_test_c1_logic()
+	await _test_c1_play()
 	print("== resultado: %d ok, %d falha(s) ==" % [_passed, _failed])
 	quit(1 if _failed > 0 else 0)
 
@@ -1823,3 +1825,234 @@ func _test_h23() -> void:
 	_check(c.index == 2 and yaw_err < 20.0, "direção pressionada orienta o Tsuki", "erro %.0f°" % yaw_err)
 	await _wait_until(func(): return not c.is_attacking(), 1.5)
 	await _seconds(0.8)
+
+
+# --- C1: defesa e parry ----------------------------------------------------------------------
+
+## Controlador de defesa novo com os valores iniciais (lógica pura, tempos explícitos).
+func _fresh_defense() -> DefenseController:
+	return DefenseController.new(DefenseData.new())
+
+
+func _test_c1_logic() -> void:
+	print("-- C1: lógica da defesa (tempos explícitos)")
+	var d0 := DefenseData.new()
+	_check(absf(d0.perfect_window - 0.14) < 0.0001 and absf(d0.whiff_lockout - 0.25) < 0.0001 and absf(d0.block_damage_ratio - 0.20) < 0.0001, "valores iniciais aprovados: janela 0,14 s, bloqueio 0,25 s, defesa deixa 20%")
+	_check(ResourceLoader.exists(DefenseData.DEFAULT_PATH) and ResourceLoader.exists(EnemyAttackData.DEFAULT_PATH), "parâmetros em arquivos editáveis (.tres)")
+	for off in [0.0, 0.07, 0.13]:
+		var d := _fresh_defense()
+		d.press(10.0)
+		var r := d.resolve(10.0 + off, 20.0)
+		_check(r["result"] == DefenseController.Result.PERFECT and r["damage"] == 0.0, "contato a +%.2f s do aperto = parry perfeito, dano zero" % off)
+	var hold := _fresh_defense()
+	hold.press(10.0)
+	var rb := hold.resolve(10.15, 20.0)
+	_check(rb["result"] == DefenseController.Result.BLOCK and absf(rb["damage"] - 4.0) < 0.001, "contato a +0,15 s segurando = defesa normal (20% do dano)", "dano %.1f" % rb["damage"])
+	var late := _fresh_defense()
+	var rl := late.resolve(10.0, 20.0)
+	late.note_input(10.02)
+	late.press(10.02)
+	_check(rl["result"] == DefenseController.Result.HIT and rl["damage"] == 20.0, "aperto depois do contato = golpe recebido (dano inteiro)")
+	_check(late.last_late_by > 0.019 and late.last_late_by < 0.021, "o HUD sabe quanto o aperto atrasou", "%.3f s" % late.last_late_by)
+	var tap := _fresh_defense()
+	tap.press(10.0)
+	tap.release(10.03)
+	_check(tap.resolve(10.10, 20.0)["result"] == DefenseController.Result.PERFECT, "parry de toque: soltou em 0,03 s e o contato a +0,10 s ainda é perfeito")
+	var w := _fresh_defense()
+	w.press(10.0)
+	w.release(10.03)
+	w.update(10.15)
+	_check(w.whiff_count == 1 and w.in_lockout(10.2), "toque sem contato = parry em falso (bloqueio de nova janela)")
+	w.press(10.30)
+	_check(w.resolve(10.35, 20.0)["result"] == DefenseController.Result.BLOCK, "aperto durante o bloqueio só levanta a guarda normal (sem parry)")
+	w.release(10.36)
+	w.press(10.60)
+	_check(w.resolve(10.65, 20.0)["result"] == DefenseController.Result.PERFECT, "depois do bloqueio a janela perfeita volta")
+	var s := _fresh_defense()
+	s.press(10.0)
+	_check(s.resolve(10.5, 20.0)["result"] == DefenseController.Result.BLOCK and s.resolve(11.2, 20.0)["result"] == DefenseController.Result.BLOCK, "defesa sustentada: segurando, defende golpes seguidos")
+	s.release(11.3)
+	_check(s.is_defending(11.32) and not s.is_defending(11.40), "soltou: a guarda dura só a recuperação de bloqueio (0,15 s)")
+	_check(s.resolve(11.5, 20.0)["result"] == DefenseController.Result.HIT, "sem guarda nem janela = golpe recebido")
+
+
+## Coloca o jogador diante do Instrutor e devolve o instante do próximo contato.
+func _c1_setup(dist := 1.7) -> TrainingInstructor:
+	var ins := _main.get("instructor") as TrainingInstructor
+	ins.enabled = true
+	ins.interval = 0.4
+	await _reset_player(ins.global_position + Vector3(0, 0.05, dist), 0.0)
+	_player.vitals.health = _player.vitals.max_health
+	return ins
+
+
+func _c1_next_contact(ins: TrainingInstructor) -> float:
+	await _wait_until(func(): return ins.phase == TrainingInstructor.Phase.WINDUP and ins.next_contact_time > 0.0, 4.0)
+	return ins.next_contact_time
+
+
+## Aperta K para que a física veja o aperto no passo mais perto de `t` (relógio de combate).
+func _press_defend_at(t: float) -> void:
+	while CombatClock.time + DT < t - 0.0001:
+		await physics_frame
+	_key(KEY_K, true)
+	await physics_frame
+
+
+func _test_c1_play() -> void:
+	print("-- C1: Instrutor, parry, defesa e golpe recebido")
+	var c := _player.combat
+	var df := _player.defense
+	var fx := _main.get("defense_effects") as DefenseEffects
+	var cruise := _player.tuning.max_speed
+	var ins := await _c1_setup()
+
+	# Ciclo do Instrutor: sinal antes do contato, contato no instante agendado.
+	var cues := []
+	var on_cue := func() -> void: cues.append(CombatClock.time)
+	ins.cue.connect(on_cue)
+	var t_contact := await _c1_next_contact(ins)
+	var res0 := ins.results.size()
+	await _wait_until(func(): return ins.results.size() > res0, 2.0)
+	ins.cue.disconnect(on_cue)
+	_check(cues.size() == 1 and absf((t_contact - cues[0]) - ins.attack.cue_lead) <= DT + 0.001, "sinal didático ~0,25 s antes do contato", "%.3f s antes" % (t_contact - (cues[0] if cues.size() > 0 else 0.0)))
+	var r0: Dictionary = ins.results.back()
+	_check(r0.get("result", -9) == DefenseController.Result.HIT and absf(float(r0.get("time", 0.0)) - t_contact) < 0.001, "sem defesa: golpe recebido no instante agendado")
+	_check(absf(_player.vitals.health - (_player.vitals.max_health - ins.attack.damage)) < 0.01 and _player.state == Player.State.STAGGER, "golpe recebido: dano inteiro e reação curta")
+	await _seconds(_player.defense.data.hit_reaction + 0.05)
+	_check(_player.state == Player.State.MOVE, "reação acaba sozinha em 0,3 s (sem travar)")
+	await _seconds(0.5)
+
+	# Parry perfeito: aperto ~0,07 s antes do contato.
+	_player.vitals.health = _player.vitals.max_health
+	var ne0 := _player.vitals.neural_energy
+	var pp0 := ins.posture_pressure
+	var events0 := fx.events.size()
+	t_contact = await _c1_next_contact(ins)
+	await _press_defend_at(t_contact - 0.07)
+	_key(KEY_K, false)
+	await _wait_until(func(): return df.last_result >= 0 and ins.results.size() > 0 and float(ins.results.back().get("time", 0.0)) >= t_contact - 0.001, 1.0)
+	var rp: Dictionary = ins.results.back()
+	_check(rp.get("result", -9) == DefenseController.Result.PERFECT, "parry perfeito com aperto 0,07 s antes do contato", "desvio %+.0f ms" % (df.last_offset * 1000.0))
+	_check(_player.vitals.health == _player.vitals.max_health, "parry perfeito: dano zero")
+	_check(ins.phase == TrainingInstructor.Phase.OFF_BALANCE, "parry perfeito: Instrutor desequilibrado")
+	_check(_player.vitals.neural_energy - ne0 == df.data.parry_neural_energy and ins.posture_pressure - pp0 == df.data.parry_posture_pressure, "parry: soma Energia Neural e pressão de postura (contadores do C1)")
+	_check(fx.events.slice(events0).has("parry") and not fx.events.slice(events0).has("defesa"), "feedback do parry é o do parry (não o da defesa)")
+	_check(_player._freeze_until > CombatClock.time - 0.001 and _player.visual.is_frozen(), "hitstop local do parry no jogador")
+	# Buffer durante o hitstop: um ataque apertado no congelamento sai depois dele.
+	var sw0 := c.swing_id
+	await _attack_tap()
+	await _wait_until(func(): return c.swing_id > sw0, 0.5)
+	_check(c.swing_id > sw0, "ataque apertado durante o hitstop do parry não se perde")
+	await _wait_until(func(): return not c.is_attacking(), 1.5)
+	await _seconds(0.6)
+
+	# Defesa normal: aperto 0,30 s antes e segurando.
+	await _c1_setup()
+	t_contact = await _c1_next_contact(ins)
+	await _press_defend_at(t_contact - 0.30)
+	var pos_b := _player.global_position
+	await _wait_until(func(): return ins.results.size() > 0 and float(ins.results.back().get("time", 0.0)) >= t_contact - 0.001, 1.0)
+	var rbk: Dictionary = ins.results.back()
+	_check(rbk.get("result", -9) == DefenseController.Result.BLOCK, "segurando a guarda: defesa normal")
+	_check(absf(_player.vitals.health - (_player.vitals.max_health - ins.attack.damage * df.data.block_damage_ratio)) < 0.01, "defesa normal: passa 20% do dano")
+	_check(_player.state == Player.State.GUARD and _player.visual.guard_blend() > 0.8, "de guarda: postura defensiva visível", "%.2f" % _player.visual.guard_blend())
+	ins.enabled = false
+	await _seconds(0.15)
+	_check(_player.global_position.distance_to(pos_b) > 0.1, "defesa normal: empurrão curto", "%.2f m" % _player.global_position.distance_to(pos_b))
+	# Andar de guarda e soltar: volta a correr sem pausa.
+	_key(KEY_S, true)   # para longe do Instrutor
+	var gtrace := await _speed_trace(0.3)
+	_check(gtrace.last <= df.data.guard_move_speed + 0.05, "andar de guarda é mais lento", "%.2f m/s" % gtrace.last)
+	_key(KEY_K, false)
+	var free := await _speed_trace(0.4)
+	_check(_player.state == Player.State.MOVE and free.last >= cruise * 0.9, "soltou a guarda: corre de novo sem pausa artificial", "%.2f m/s" % free.last)
+	_key(KEY_S, false)
+	await _seconds(0.6)
+
+	# Tarde: aperto depois do contato.
+	await _c1_setup()
+	t_contact = await _c1_next_contact(ins)
+	await _press_defend_at(t_contact + 0.05)
+	_key(KEY_K, false)
+	_check(ins.results.back().get("result", -9) == DefenseController.Result.HIT and df.last_late_by > 0.0, "aperto 0,05 s depois do contato = golpe recebido (tarde)", "atraso %.3f s" % df.last_late_by)
+	await _seconds(0.8)
+
+	# Um resultado por golpe, mesmo ficando no alcance a janela inteira.
+	await _c1_setup()
+	var att := [0]
+	var on_att := func(_i: Dictionary) -> void: att[0] += 1
+	_player.attacked.connect(on_att)
+	var sw_ins := ins.swing
+	await _c1_next_contact(ins)
+	await _wait_until(func(): return ins.phase == TrainingInstructor.Phase.RECOVERY, 2.0)
+	_player.attacked.disconnect(on_att)
+	_check(att[0] == 1, "um único resultado por golpe do Instrutor (sem dano duplicado)", "%d" % att[0])
+	await _seconds(0.6)
+
+	# Parry em falso sem ataque perto: bloqueio de nova janela, mas movimento livre.
+	ins.enabled = false
+	await _reset_player(Vector3(-25, 0.05, 25), -PI / 2.0)
+	await _tap(KEY_K)
+	await _seconds(0.2)
+	_check(df.in_lockout(CombatClock.time) and df.whiff_count >= 1, "toque sem ataque perto = parry em falso")
+	_key(KEY_W, true)
+	var lock_run := await _speed_trace(0.2)
+	_check(lock_run.last >= cruise * 0.9, "parry em falso não trava a locomoção", "%.2f m/s" % lock_run.last)
+	_key(KEY_W, false)
+	await _seconds(0.3)
+	await _tap(KEY_K)
+	await _ticks(2)
+	await _tap(KEY_SPACE)
+	var dodged_ok := await _wait_until(func(): return _player.state == Player.State.DODGE, 0.15)
+	_check(dodged_ok >= 0.0, "parry em falso não impede a esquiva")
+	await _seconds(0.6)
+
+	# Prioridades no mesmo passo: esquiva > defesa > ataque.
+	await _reset_player(Vector3(-25, 0.05, 25), -PI / 2.0)
+	await _seconds(0.4)
+	_key(KEY_K, true)
+	_key(KEY_SPACE, true)
+	await physics_frame
+	_key(KEY_SPACE, false)
+	await physics_frame
+	_check(_player.state == Player.State.DODGE, "esquiva e defesa no mesmo passo: esquiva vence")
+	_key(KEY_K, false)
+	await _seconds(0.8)
+	var sw1 := c.swing_id
+	_key(KEY_K, true)
+	_key(KEY_J, true)
+	await physics_frame
+	_key(KEY_J, false)
+	await _ticks(3)
+	_check(_player.state == Player.State.GUARD and c.swing_id == sw1, "defesa e ataque no mesmo passo: defesa vence (ataque descartado)")
+	_key(KEY_K, false)
+	await _seconds(0.5)
+
+	# Defesa interrompe um golpe só na janela de cancelamento existente.
+	await _reset_player(Vector3(-25, 0.05, 25), -PI / 2.0)
+	await _seconds(0.8)
+	await _attack_tap()
+	await _tap(KEY_K)
+	var t_g := await _wait_until(func(): return _player.state == Player.State.GUARD, 0.3)
+	var s1 := c.combo.strikes[0]
+	_check(t_g >= 0.0 and not c.is_attacking(), "defesa interrompe o golpe", "%.3f s" % t_g)
+	_check(t_g + 3 * DT >= s1.to_real(s1.dodge_cancel_from) - DT, "a interrupção respeita a janela de cancelamento do golpe")
+	await _seconds(0.6)
+
+	# Esquiva escapa do golpe (i-frames): sem dano e sem resultado de defesa.
+	var ins2 := await _c1_setup()
+	t_contact = await _c1_next_contact(ins2)
+	while CombatClock.time < t_contact - 0.08:
+		await physics_frame
+	var h0 := _player.vitals.health
+	_key(KEY_S, true)
+	await _tap(KEY_SPACE)
+	await _seconds(0.3)
+	_key(KEY_S, false)
+	_check(_player.vitals.health == h0, "esquiva com i-frames escapa do golpe do Instrutor")
+	ins.enabled = false
+	await _seconds(0.5)
+	# Golpes aprovados intactos.
+	_check(FileAccess.get_sha256("res://assets/animations/katana/katana_kesa.res") == KESA_APPROVED_SHA256 and FileAccess.get_sha256("res://assets/animations/katana/katana_kiriage.res") == KIRIAGE_APPROVED_SHA256, "Kesa e Kiriage aprovados intactos depois do C1")
+	await _reset_player(Vector3(-25, 0.05, 25), -PI / 2.0)
