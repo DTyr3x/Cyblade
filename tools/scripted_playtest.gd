@@ -19,6 +19,15 @@ var _dodge_end_pos := Vector3.ZERO
 var _pending_dodge := false
 var _shot_ranges: Array[Vector2i] = []
 
+## Vigia contra travamento: uma thread confere se o laço principal segue processando quadros.
+## Se ficar WATCHDOG_SECONDS sem avançar, registra onde parou (trecho e quadro) e encerra o
+## processo, para o travamento virar um diagnóstico em vez de uma janela presa.
+const WATCHDOG_SECONDS := 20
+var _watch_thread: Thread
+var _watch_stop := false
+var _watch_frame := 0
+var _watch_segment := "(início)"
+
 
 func _ready() -> void:
 	_player = main.get("player")
@@ -32,6 +41,7 @@ func _ready() -> void:
 	_player.dodge_started.connect(_on_dodge_started)
 	_player.dodge_finished.connect(_on_dodge_finished)
 	_player.state_changed.connect(_on_state_changed)
+	_start_watchdog()
 	_run()
 
 
@@ -49,6 +59,7 @@ func _run() -> void:
 
 
 func _segment(seg_name: String, _seconds: float, body: Callable, report := true) -> void:
+	_watch_segment = seg_name
 	_stats.reset()
 	_shot_ranges.clear()
 	var t0 := Time.get_ticks_usec()
@@ -211,6 +222,8 @@ func _preset_run(index: int, label: String) -> void:
 
 
 func _finish() -> void:
+	_watch_stop = true
+	_watch_thread.wait_to_finish()
 	_results["godot"] = Engine.get_version_info()["string"]
 	_results["renderer"] = RenderingServer.get_current_rendering_method()
 	_results["driver"] = RenderingServer.get_current_rendering_driver_name()
@@ -298,3 +311,27 @@ func _on_state_changed(new_state: int) -> void:
 			"dodge_s": snappedf((_dodge_finished_usec - _dodge_started_usec) / 1000000.0, 0.001),
 			"total_s": snappedf((Time.get_ticks_usec() - _dodge_started_usec) / 1000000.0, 0.001),
 		})
+
+
+func _process(_delta: float) -> void:
+	_watch_frame = Engine.get_frames_drawn()
+
+
+func _start_watchdog() -> void:
+	_watch_thread = Thread.new()
+	_watch_thread.start(_watch_loop)
+
+
+func _watch_loop() -> void:
+	var last := -1
+	var still := 0.0
+	while not _watch_stop:
+		OS.delay_msec(500)
+		if _watch_frame != last:
+			last = _watch_frame
+			still = 0.0
+			continue
+		still += 0.5
+		if still >= WATCHDOG_SECONDS:
+			print("[playtest] TRAVAMENTO: nenhum quadro há %d s (trecho '%s', quadro %d)" % [WATCHDOG_SECONDS, _watch_segment, last])
+			OS.kill(OS.get_process_id())

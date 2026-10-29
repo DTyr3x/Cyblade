@@ -39,6 +39,8 @@ func _run() -> void:
 	await _test_camera()
 	await _test_camera_relative_movement()
 	await _test_ramp()
+	await _test_humanoid()
+	await _test_h11()
 	print("== resultado: %d ok, %d falha(s) ==" % [_passed, _failed])
 	quit(1 if _failed > 0 else 0)
 
@@ -524,3 +526,313 @@ func _test_dodge_flow() -> void:
 	_key(KEY_W, false)
 	_near(moved, 4.0, 0.3, "8. deslocamento da esquiva em corrida (m)")
 	await _seconds(0.5)
+
+
+# --- H1: humanoide animado -----------------------------------------------------
+
+const REQUIRED_BONES := ["root", "pelvis", "spine_01", "spine_02", "spine_03", "neck_01", "Head",
+	"clavicle_l", "upperarm_l", "lowerarm_l", "hand_l", "clavicle_r", "upperarm_r", "lowerarm_r", "hand_r",
+	"thigh_l", "calf_l", "foot_l", "ball_l", "thigh_r", "calf_r", "foot_r", "ball_r"]
+
+
+func _foot_world(bone: int) -> Vector3:
+	var sk := _player.visual.skeleton
+	return sk.global_transform * sk.get_bone_global_pose(bone).origin
+
+
+## Escorregamento dos pés: velocidade horizontal (m/s, no mundo) do pé enquanto apoiado.
+## Pé parado no chão = 0. Devolve média, p95 e quantidade de ticks de apoio.
+func _foot_slide(seconds: float) -> Dictionary:
+	var sk := _player.visual.skeleton
+	var bones := [sk.find_bone("foot_l"), sk.find_bone("foot_r")]
+	var prev := [_foot_world(bones[0]), _foot_world(bones[1])]
+	var samples := [[], []]
+	var min_y := [INF, INF]
+	for i in int(round(seconds / DT)):
+		await physics_frame
+		for f in 2:
+			var p := _foot_world(bones[f])
+			var v := Vector2(p.x - prev[f].x, p.z - prev[f].z).length() / DT
+			samples[f].append([p.y, v])
+			min_y[f] = minf(min_y[f], p.y)
+			prev[f] = p
+	var slides: Array = []
+	for f in 2:
+		for s: Array in samples[f]:
+			if s[0] < min_y[f] + 0.03:
+				slides.append(s[1])
+	slides.sort()
+	var total := 0.0
+	for s: float in slides:
+		total += s
+	return {"mean": total / maxf(slides.size(), 1), "p95": slides[int(slides.size() * 0.95)] if slides.size() > 0 else 0.0, "n": slides.size()}
+
+
+func _test_humanoid() -> void:
+	print("-- H1: humanoide, esqueleto e animação")
+	var vis: HumanoidVisual = _player.visual
+	var cruise := _player.tuning.max_speed
+
+	# Consistência do esqueleto e dos ativos.
+	_check(vis.skeleton != null and vis.skeleton.get_bone_count() == 65, "esqueleto com 65 ossos", "%d" % (vis.skeleton.get_bone_count() if vis.skeleton else -1))
+	var missing: Array = []
+	for b in REQUIRED_BONES:
+		if vis.skeleton.find_bone(b) < 0:
+			missing.append(b)
+	_check(missing.is_empty(), "ossos humanoides obrigatórios presentes", str(missing))
+	var clips_ok := true
+	for p: Array in HumanoidVisual.LOCO_POINTS:
+		clips_ok = clips_ok and vis.anim_player.has_animation(p[0])
+	_check(clips_ok, "clipes de locomoção existem no pacote (Idle, Walk, Jog_Fwd, Sprint)")
+	_check(vis.anim_tree != null and vis.anim_tree.active, "AnimationTree ativo")
+	_check(vis.pose_modifier != null and vis.pose_modifier.get_parent() == vis.skeleton, "modificador de pose ligado ao esqueleto")
+	var hand_attach := vis.katana.get_parent() as BoneAttachment3D
+	_check(hand_attach != null and hand_attach.bone_name == "hand_r" and hand_attach.get_parent() == vis.skeleton, "katana presa ao osso hand_r")
+	_check(_foot_world(vis.skeleton.find_bone("foot_l")).y > -0.1, "pés acima do piso no repouso")
+
+	# Parado: animação em idle.
+	await _reset_player(Vector3(-15, 0.05, 25), -PI / 2.0)
+	await _seconds(0.3)
+	_near(vis.blend_position(), 0.0, 0.01, "parado: animação em Idle (ponto 0)")
+
+	# Corrida -> parada: a animação acompanha a velocidade REAL, sem atraso.
+	_key(KEY_W, true)
+	await _seconds(0.6)
+	var follow_err := 0.0
+	for i in 30:
+		await physics_frame
+		follow_err = maxf(follow_err, absf(vis.effective_speed() - _player.horizontal_velocity().length()))
+	_near(vis.effective_speed(), cruise, 0.05, "correndo: velocidade coberta pela animação = velocidade da cápsula (m/s)")
+	_near(vis.blend_position(), HumanoidVisual.JOG_SPEED, 0.01, "correndo a 6 m/s: ciclo de Jog puro (sem misturar com Sprint)")
+	_check(vis.run_scale() > 1.0 and vis.run_scale() <= HumanoidVisual.MAX_JOG_SCALE, "Jog acelerado em %.2fx para casar com o chão" % vis.run_scale())
+	_check(follow_err < 0.05, "em regime a animação lê a velocidade real", "erro máx %.3f m/s" % follow_err)
+	_check(vis.pose_modifier.run_amount() > 0.95, "postura de espadachim na corrida (katana para trás)", "%.2f" % vis.pose_modifier.run_amount())
+	_key(KEY_W, false)
+	var max_step := 0.0
+	var prev_blend := vis.blend_position()
+	var settle := -1.0
+	for i in int(0.5 / DT):
+		await physics_frame
+		max_step = maxf(max_step, absf(vis.blend_position() - prev_blend))
+		prev_blend = vis.blend_position()
+		if settle < 0.0 and vis.blend_position() < 0.05:
+			settle = i * DT
+	_check(settle >= 0.0 and settle < 0.2, "corrida → parada: animação chega a Idle em < 0,2 s", "%.3f s" % settle)
+	_check(max_step < 1.2, "parada sem salto brusco no ponto de mistura (por tick)", "%.2f m/s por tick" % max_step)
+	_check(vis.pose_modifier.run_amount() < 0.2, "postura de corrida se desfaz ao parar", "%.2f" % vis.pose_modifier.run_amount())
+
+	# Corrida -> giro -> corrida (45° e 90° mantendo a corrida).
+	var turns := [
+		["45°", KEY_W, KEY_D, 45.0],
+		["90°", KEY_W, KEY_A, 90.0],
+	]
+	for t: Array in turns:
+		await _reset_player(Vector3(-15, 0.05, 25), 0.0)
+		_key(t[1], true)
+		await _seconds(0.5)
+		var yaw0 := _player.rotation.y
+		_key(t[2], true)
+		if t[3] == 90.0:
+			_key(t[1], false)
+		var t_turn := -1.0
+		var min_speed := INF
+		var min_blend := INF
+		for i in int(0.6 / DT):
+			await physics_frame
+			var dy := absf(angle_difference(_player.rotation.y, yaw0))
+			if t_turn < 0.0 and rad_to_deg(dy) >= t[3] - 3.0:
+				t_turn = i * DT
+			min_speed = minf(min_speed, _player.horizontal_velocity().length())
+			min_blend = minf(min_blend, vis.effective_speed())
+		_check(t_turn >= 0.0 and t_turn < 0.2, "giro de %s completa em < 0,2 s (corpo)" % t[0], "%.3f s" % t_turn)
+		_check(min_speed > cruise * 0.6, "giro de %s sem parar a corrida" % t[0], "mín %.2f m/s" % min_speed)
+		_check(min_blend > cruise * 0.6, "giro de %s: animação segue em corrida" % t[0], "mín %.2f" % min_blend)
+		_near(_player.horizontal_velocity().length(), cruise, 0.15, "giro de %s: volta à velocidade de corrida" % t[0])
+		_key(t[1], false)
+		_key(t[2], false)
+		await _seconds(0.3)
+
+	# 180°: a inversão passa por velocidade baixa por regra de controle (~0,2 s), já aprovada.
+	await _reset_player(Vector3(-15, 0.05, 25), 0.0)
+	_key(KEY_D, true)
+	await _seconds(0.5)
+	var yaw180 := _player.rotation.y
+	_key(KEY_D, false)
+	_key(KEY_A, true)
+	var t180 := -1.0
+	for i in int(0.6 / DT):
+		await physics_frame
+		if t180 < 0.0 and rad_to_deg(absf(angle_difference(_player.rotation.y, yaw180))) >= 177.0:
+			t180 = i * DT
+	_check(t180 >= 0.0 and t180 < 0.25, "giro de 180° completa em < 0,25 s (corpo)", "%.3f s" % t180)
+	_near(_player.horizontal_velocity().length(), cruise, 0.15, "giro de 180°: volta à velocidade de corrida")
+	_key(KEY_A, false)
+	await _seconds(0.3)
+
+	# Corrida -> esquiva -> corrida: investida visual e retorno sem queda.
+	await _reset_player(Vector3(-15, 0.05, 25), -PI / 2.0)
+	_key(KEY_W, true)
+	await _seconds(0.5)
+	await _tap(KEY_SPACE)
+	var max_dash := 0.0
+	var max_blend := 0.0
+	for i in int(0.2 / DT):
+		await physics_frame
+		max_dash = maxf(max_dash, vis.pose_modifier.dash_amount())
+		max_blend = maxf(max_blend, vis.blend_position())
+	_check(max_dash > 0.8, "esquiva: pose de investida aparece", "%.2f" % max_dash)
+	_near(max_blend, HumanoidVisual.DASH_BLEND_POINT, 0.5, "esquiva: ciclo de sprint na investida")
+	var after := await _speed_trace(0.5)
+	var min_after_blend := INF
+	for i in int(0.4 / DT):
+		await physics_frame
+		min_after_blend = minf(min_after_blend, vis.effective_speed())
+	_check(after.min >= cruise * 0.95, "esquiva → corrida: velocidade da cápsula não cai", "mín %.2f" % after.min)
+	_check(min_after_blend > cruise * 0.9, "esquiva → corrida: animação segue em corrida", "mín %.2f" % min_after_blend)
+	_check(vis.pose_modifier.dash_amount() < 0.05, "esquiva: pose de investida se desfaz", "%.2f" % vis.pose_modifier.dash_amount())
+	_key(KEY_W, false)
+	await _seconds(0.3)
+
+	# Esquiva sem direção pressionada.
+	await _reset_player(Vector3(-15, 0.05, 25), -PI / 2.0)
+	await _tap(KEY_SPACE)
+	await _seconds(0.25)
+	_check(vis.pose_modifier.dash_amount() > 0.6, "esquiva parado: pose de investida", "%.2f" % vis.pose_modifier.dash_amount())
+	await _seconds(0.6)
+	_near(vis.blend_position(), 0.0, 0.05, "esquiva parado: volta ao Idle")
+	_check(_player.state == Player.State.MOVE, "esquiva parado: volta a MOVE")
+
+	# Rampa: animação segue a velocidade horizontal e o corpo sobe.
+	await _reset_player(Vector3(20, 0.05, 2.0), 0.0)
+	_key(KEY_W, true)
+	await _seconds(1.5)
+	var on_ramp_y := _player.global_position.y
+	var vh := _player.horizontal_velocity().length()
+	_check(on_ramp_y > 0.8, "rampa: o corpo sobe", "altura %.2f m" % on_ramp_y)
+	_check(vh > cruise * 0.7 and absf(vis.effective_speed() - vh) < 0.1, "rampa: animação segue a velocidade horizontal", "v %.2f, animação %.2f" % [vh, vis.effective_speed()])
+	_key(KEY_W, false)
+	await _seconds(0.3)
+
+	# Deslize dos pés em corrida constante (medição; limite conservador, ver docs/h1-locomocao.md).
+	await _reset_player(Vector3(-25, 0.05, 25), -PI / 2.0)
+	_key(KEY_W, true)
+	await _seconds(0.6)
+	var slide := await _foot_slide(1.5)
+	_key(KEY_W, false)
+	print("  [medição] deslize dos pés na corrida: média %.2f m/s, p95 %.2f m/s, %d ticks de apoio" % [slide.mean, slide.p95, slide.n])
+	_check(slide.n >= 20, "deslize: houve ticks de apoio medidos", "%d" % slide.n)
+	_check(slide.mean < 1.0, "deslize médio dos pés em apoio na corrida < 1,0 m/s", "%.2f m/s" % slide.mean)
+	await _seconds(0.3)
+
+
+# --- H1.1: refinamento da locomoção ---------------------------------------------
+
+## Balanço do braço da katana: amplitude (pico a pico, m) da mão direita no referencial do
+## peito (spine_03) durante `seconds` de corrida. Menor = braço mais firme junto ao corpo.
+func _arm_sway(seconds: float) -> float:
+	var sk := _player.visual.skeleton
+	var hand := sk.find_bone("hand_r")
+	var chest := sk.find_bone("spine_03")
+	var acc := {"lo": Vector3(INF, INF, INF), "hi": Vector3(-INF, -INF, -INF)}
+	# `skeleton_updated` sai depois dos modificadores: é a pose que vai para a tela.
+	var sample := func() -> void:
+		var p := sk.get_bone_global_pose(chest).affine_inverse() * sk.get_bone_global_pose(hand).origin
+		acc.lo = Vector3(minf(acc.lo.x, p.x), minf(acc.lo.y, p.y), minf(acc.lo.z, p.z))
+		acc.hi = Vector3(maxf(acc.hi.x, p.x), maxf(acc.hi.y, p.y), maxf(acc.hi.z, p.z))
+	sk.skeleton_updated.connect(sample)
+	await _seconds(seconds)
+	sk.skeleton_updated.disconnect(sample)
+	return (acc.hi - acc.lo).length()
+
+
+func _test_h11() -> void:
+	print("-- H1.1: refinamento (braço da katana, postura por arma, giros)")
+	var vis: HumanoidVisual = _player.visual
+	var mod := vis.pose_modifier
+	var cruise := _player.tuning.max_speed
+
+	# Balanço do braço: a medição é a pose final (depois do modificador). H1 media 0,48 m
+	# (pior que o clipe cru, 0,29 m, porque o alvo fixo no modelo brigava com o tronco).
+	await _reset_player(Vector3(-25, 0.05, 25), -PI / 2.0)
+	_key(KEY_W, true)
+	await _seconds(0.8)
+	var sway := await _arm_sway(1.2)
+	mod.active = false
+	var sway_clip := await _arm_sway(1.2)
+	mod.active = true
+	_key(KEY_W, false)
+	print("  [medição] mão da katana na corrida: %.3f m (H1: 0.482 m; clipe cru: %.3f m)" % [sway, sway_clip])
+	_check(sway < 0.482 * 0.5, "balanço da mão da katana pelo menos 50%% menor que no H1", "%.3f m" % sway)
+	_check(sway < sway_clip * 0.8, "braço da katana mais firme que o clipe cru", "%.3f m" % sway)
+	_check(sway > 0.02, "braço ainda tem movimento (não fica travado como um robô)", "%.3f m" % sway)
+	await _seconds(0.3)
+
+	# Postura por família de arma.
+	_check(mod.stance != null and mod.stance.family == WeaponStance.KATANA, "postura ativa é a da katana")
+	_check(WeaponStance.for_family(&"katana").family == WeaponStance.KATANA, "família katana resolve a própria postura")
+	var all_resolve := true
+	for f: StringName in WeaponStance.PLANNED:
+		all_resolve = all_resolve and WeaponStance.for_family(f) != null
+	_check(all_resolve, "famílias planejadas ainda sem postura própria caem na katana (sem quebrar)")
+	_check(mod.stance.arm_swing_keep > 0.0 and mod.stance.arm_swing_keep < 0.5, "postura define balanço conservado do braço", "%.2f" % mod.stance.arm_swing_keep)
+
+	# Giros: o quadril visual acompanha com atraso curto, o tronco lidera, a cápsula não espera.
+	for t: Array in [["45°", KEY_D, 45.0], ["90°", KEY_A, 90.0]]:
+		await _reset_player(Vector3(-15, 0.05, 25), 0.0)
+		_key(KEY_W, true)
+		await _seconds(0.5)
+		var yaw0 := _player.rotation.y
+		_key(t[1], true)
+		if t[2] == 90.0:
+			_key(KEY_W, false)
+		var max_off := 0.0
+		var t_body := -1.0
+		var min_speed := INF
+		for i in int(0.6 / DT):
+			await physics_frame
+			max_off = maxf(max_off, absf(mod._turn_offset))
+			min_speed = minf(min_speed, _player.horizontal_velocity().length())
+			if t_body < 0.0 and rad_to_deg(absf(angle_difference(_player.rotation.y, yaw0))) >= t[2] - 3.0:
+				t_body = i * DT
+		_check(rad_to_deg(max_off) > 3.0, "giro de %s: o quadril visual acompanha com suavização" % t[0], "desvio máx %.1f°" % rad_to_deg(max_off))
+		_check(rad_to_deg(max_off) <= HumanoidVisual.TURN_LAG_MAX_DEG + 0.5, "giro de %s: desvio visual limitado" % t[0], "%.1f°" % rad_to_deg(max_off))
+		_check(t_body >= 0.0 and t_body < 0.2, "giro de %s: o corpo da cápsula continua girando em < 0,2 s" % t[0], "%.3f s" % t_body)
+		_check(min_speed > cruise * 0.6, "giro de %s: suavização visual não reduz a velocidade" % t[0], "mín %.2f" % min_speed)
+		_check(rad_to_deg(absf(mod._turn_offset)) < 3.0, "giro de %s: quadril alinhado de novo ao fim" % t[0], "%.1f°" % rad_to_deg(mod._turn_offset))
+		_key(t[1], false)
+		_key(KEY_W, false)
+		await _seconds(0.3)
+
+	# Giro de 180° parado e sentido do tronco: o peito lidera (gira menos atrás da cápsula que o quadril).
+	await _reset_player(Vector3(-15, 0.05, 25), 0.0)
+	await _seconds(0.3)
+	_key(KEY_D, true)
+	var lead_ok := false
+	var hip_lag := 0.0
+	for i in int(0.4 / DT):
+		await physics_frame
+		hip_lag = maxf(hip_lag, absf(vis.rotation.y))
+		var chest_world := vis.global_rotation.y - mod._turn_offset * mod.torso_lead
+		var body := _player.global_rotation.y
+		if absf(vis.rotation.y) > deg_to_rad(5.0) and absf(angle_difference(chest_world, body)) < absf(angle_difference(vis.global_rotation.y, body)):
+			lead_ok = true
+	_key(KEY_D, false)
+	_check(lead_ok, "giro: o tronco fica mais perto da direção nova que o quadril", "atraso máx do quadril %.1f°" % rad_to_deg(hip_lag))
+	await _seconds(0.4)
+
+	# Esquiva preservada: perfil intocado e visual sem atraso de giro.
+	await _reset_player(Vector3(-15, 0.05, 25), -PI / 2.0)
+	_key(KEY_W, true)
+	await _seconds(0.5)
+	var p0 := _player.global_position
+	await _tap(KEY_SPACE)
+	var t_d := 0.0
+	var off_dash := 0.0
+	while _player.state != Player.State.MOVE and t_d < 0.8:
+		await physics_frame
+		t_d += DT
+		if _player.state == Player.State.DODGE:
+			off_dash = maxf(off_dash, absf(mod._turn_offset))
+	_check(rad_to_deg(off_dash) < 1.0, "esquiva: visual sem atraso de giro", "%.2f°" % rad_to_deg(off_dash))
+	_key(KEY_W, false)
+	await _seconds(0.3)
