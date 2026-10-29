@@ -1391,6 +1391,21 @@ func _test_h22() -> void:
 	await _wait_until(func(): return not c.is_attacking(), 1.5)
 	await _seconds(0.8)
 
+	# Kiriage isolado no boneco: aperto → contato (medição). O Kesa vem antes só para o índice da cadeia.
+	await _reset_player(Vector3(0, 0.05, 5.4), 0.0)
+	await _seconds(0.7)
+	await _attack_tap()
+	await _wait_until(func(): return not c.is_attacking(), 1.5)
+	await _seconds(0.15)
+	_player.global_position = Vector3(0, 0.05, 5.0)
+	hits0 = dummy.hits.size()
+	await _attack_tap()
+	var t_iso_hit := await _wait_until(func(): return dummy.hits.size() > hits0, 0.6)
+	print("  [medição] Kiriage isolado: aperto → contato no boneco: %.3f s" % (t_iso_hit + 2 * DT))
+	_check(c.index == 1 and t_iso_hit >= 0.0 and t_iso_hit + 2 * DT <= 0.28, "Kiriage isolado: aperto → contato em até 0,28 s", "%.3f s" % (t_iso_hit + 2 * DT))
+	await _wait_until(func(): return not c.is_attacking(), 1.5)
+	await _seconds(0.8)
+
 	# Tempo do comando ao INÍCIO PERCEPTÍVEL da animação (mão ou quadril mexe > 2 cm), medição.
 	for idx in [0, 1]:
 		await _reset_player(Vector3(-25, 0.05, 25), -PI / 2.0)
