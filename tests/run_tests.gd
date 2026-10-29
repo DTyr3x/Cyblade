@@ -45,6 +45,7 @@ func _run() -> void:
 	await _test_h21()
 	await _test_h22()
 	await _test_h22_buffer_hitstop()
+	await _test_h23()
 	print("== resultado: %d ok, %d falha(s) ==" % [_passed, _failed])
 	quit(1 if _failed > 0 else 0)
 
@@ -1531,4 +1532,294 @@ func _test_h22_buffer_hitstop() -> void:
 	await _wait_until(func(): return not c.is_attacking(), 1.5)
 	var hit_names: Array = dummy.hits.slice(hits0).map(func(h): return String(h["strike"]))
 	_check(hit_names == ["kesa_avancado", "kiriage_de_retorno"], "Kesa → Kiriage no boneco: um acerto de cada golpe", str(hit_names))
+	await _seconds(0.8)
+
+
+# --- H2.3: Tsuki de passo duplo (terceiro golpe autoral) -------------------------------------
+
+const KIRIAGE_APPROVED_SHA256 := "b7a98a44fda967ed75ff0e6784221a77baf0dcb7e76ac04b1116e2e77b22361c"
+
+
+## Descontinuidade de velocidade de um canal na amostra `i`: |(p[i]-p[i-1]) - (p[i-1]-p[i-2])|.
+func _vel_jump(samples: Array, key: String, i: int) -> float:
+	var a: Vector3 = samples[i][key]
+	var b: Vector3 = samples[i - 1][key]
+	var c: Vector3 = samples[i - 2][key]
+	return ((a - b) - (b - c)).length()
+
+
+func _test_h23() -> void:
+	print("-- H2.3: Tsuki de passo duplo")
+	var c := _player.combat
+	var vis: HumanoidVisual = _player.visual
+	var sk := vis.skeleton
+	var cruise := _player.tuning.max_speed
+	var dummy := _main.get("dummy") as TrainingDummy
+	var fx := _main.get("effects") as CombatEffects
+	var kesa := c.combo.strikes[0]
+	var kiri := c.combo.strikes[1]
+	var tsuki := c.combo.strikes[2]
+
+	# 1. Integridade dos golpes aprovados (clipes e dados) e do novo golpe.
+	_check(FileAccess.get_sha256("res://assets/animations/katana/katana_kesa.res") == KESA_APPROVED_SHA256, "Kesa aprovado: clipe idêntico (SHA-256)")
+	_check(FileAccess.get_sha256("res://assets/animations/katana/katana_kiriage.res") == KIRIAGE_APPROVED_SHA256, "Kiriage aprovado: clipe idêntico (SHA-256)")
+	var kiri_ok := absf(kiri.active_start - 8.0 / 60.0) < 0.0001 and absf(kiri.active_end - 13.0 / 60.0) < 0.0001 and absf(kiri.chain_open - 17.0 / 60.0) < 0.0001 \
+		and absf(kiri.dodge_cancel_from - 3.0 / 60.0) < 0.0001 and absf(kiri.move_cancel_from - 20.0 / 60.0) < 0.0001 and absf(kiri.advance_distance - 0.6) < 0.0001 \
+		and absf(kiri.advance_start - 2.0 / 60.0) < 0.0001 and absf(kiri.advance_end - 12.0 / 60.0) < 0.0001 and absf(kiri.hitstop - 0.06) < 0.0001 and kiri.speed == 1.0 and kiri.seamless_chain
+	_check(kiri_ok, "Kiriage aprovado: tempos, avanço, hitstop e regras idênticos")
+	_check(absf(kesa.active_start - 7.0 / 60.0) < 0.0001 and absf(kesa.advance_distance - 0.9) < 0.0001 and absf(kesa.hitstop - 0.06) < 0.0001 and not kesa.seamless_chain, "Kesa aprovado: dados idênticos")
+	_check(c.combo.strikes.size() == 3 and String(tsuki.id) == "tsuki_de_passo_duplo", "combo = Kesa → Kiriage → Tsuki")
+	_check(tsuki.clip_resource != null and tsuki.clip_resource != kiri.clip_resource and tsuki.clip_resource != kesa.clip_resource and not tsuki.mirrored and tsuki.authored_grip and tsuki.seamless_chain, "Tsuki: clipe autoral próprio, duas mãos, encadeamento contínuo")
+	_check(tsuki.active_start < tsuki.active_end and tsuki.active_end <= tsuki.chain_open and tsuki.chain_open < tsuki.clip_length() and tsuki.dodge_cancel_from < tsuki.move_cancel_from and tsuki.move_cancel_from < tsuki.clip_length(), "Tsuki: janelas em ordem")
+	_check(tsuki.hitstop > kiri.hitstop and tsuki.damage > kiri.damage and tsuki.knockback > kiri.knockback and tsuki.camera_shake > 0.0 and kesa.camera_shake == 0.0 and kiri.camera_shake == 0.0, "Tsuki: impacto mais expressivo que os golpes anteriores (hitstop, dano, recuo, tremor só aqui)")
+	_check(tsuki.total_real() < 0.7 and tsuki.speed == 1.0, "Tsuki não é lento: duração total abaixo de 0,7 s com velocidade normal", "%.2f s" % tsuki.total_real())
+
+	# 2. Sequência Kesa → Kiriage → Tsuki no ar: tempo, continuidade e integridade.
+	await _reset_player(Vector3(-25, 0.05, 25), -PI / 2.0)
+	await _seconds(0.7)
+	var log: Array = []
+	var stop_log := _start_pose_log(log)
+	var started: Array = []
+	var start_times: Array = []
+	var t_clock := 0.0
+	var on_start := func(_d: StrikeData, i: int, _s: int) -> void:
+		started.append(i)
+		start_times.append(Engine.get_physics_frames())
+	c.strike_started.connect(on_start)
+	await _attack_tap()
+	await _ticks(3)
+	await _attack_tap()
+	await _wait_until(func(): return started.size() >= 2, 1.0)
+	await _ticks(3)
+	await _attack_tap()
+	await _wait_until(func(): return started.size() >= 3, 1.0)
+	_check(started == [0, 1, 2], "sequência de 3 golpes encadeados: Kesa → Kiriage → Tsuki", str(started))
+	var tsuki_sw := log.size()
+	await _wait_until(func(): return not c.is_attacking(), 1.5)
+	c.strike_started.disconnect(on_start)
+	stop_log.call()
+	await _seconds(0.3)
+	var swk := _first_swing_change(log, log[0]["swing"])
+	var sw_tsuki := -1
+	for i in range(1, log.size()):
+		if log[i]["striking"] and log[i]["swing"] != log[i - 1]["swing"] and i > swk:
+			sw_tsuki = i
+	_check(sw_tsuki > 20, "Kiriage → Tsuki: troca de golpe registrada", "amostra %d de %d" % [sw_tsuki, log.size()])
+	if sw_tsuki > 20:
+		var always := true
+		var min_blend := 1.0
+		for i in range(sw_tsuki - 4, mini(sw_tsuki + 12, log.size())):
+			always = always and log[i]["oneshot"]
+			min_blend = minf(min_blend, log[i]["blend"])
+		_check(always and min_blend > 0.9, "continuidade Kiriage → Tsuki: o corpo não volta à locomoção", "mistura mín %.2f" % min_blend)
+		var grip_err := 0.0
+		for i in range(sw_tsuki - 6, mini(sw_tsuki + 30, log.size())):
+			grip_err = maxf(grip_err, log[i]["grip"])
+		_check(rad_to_deg(grip_err) < 3.0, "empunhadura de duas mãos íntegra na sequência inteira", "%.2f°" % rad_to_deg(grip_err))
+		var worst := 0.0
+		var worst_bone := ""
+		for b: String in TRACK_BONES:
+			var j := _vel_jump(log, b, sw_tsuki)
+			if j > worst:
+				worst = j
+				worst_bone = b
+		_check(worst <= 0.02, "Kiriage → Tsuki: nenhum osso muda de velocidade de forma brusca na troca", "pior %s: %.3f m/quadro" % [worst_bone, worst])
+		var pos_jump := 0.0
+		for b: String in TRACK_BONES:
+			var extrap: Vector3 = (log[sw_tsuki - 1][b] as Vector3) + ((log[sw_tsuki - 1][b] as Vector3) - (log[sw_tsuki - 2][b] as Vector3))
+			pos_jump = maxf(pos_jump, (log[sw_tsuki][b] as Vector3).distance_to(extrap))
+		_check(pos_jump < 0.03, "Kiriage → Tsuki: nenhum osso salta de posição na troca", "%.3f m" % pos_jump)
+		_check(_vel_jump(log, "tip", sw_tsuki) < 0.05 and (log[sw_tsuki]["tip"] as Vector3).distance_to(log[sw_tsuki - 1]["tip"] as Vector3) < 0.2, "lâmina sem teletransporte na troca para o Tsuki", "salto de velocidade %.3f m" % _vel_jump(log, "tip", sw_tsuki))
+		var tip_cap := _max_step(log, "tip", sw_tsuki - 10, sw_tsuki + 30)
+		_check(tip_cap < 0.30, "lâmina nunca anda mais de 0,30 m entre dois quadros em torno da troca", "%.3f m" % tip_cap)
+		# Estocada legível: a ponta vai longe à frente, na altura do peito, na janela de contato.
+		var far := 0.0
+		var tip_h := 0.0
+		for i in range(sw_tsuki, log.size()):
+			if log[i]["striking"] and log[i]["swing"] == log[sw_tsuki]["swing"] and (log[i]["tip"] as Vector3).z < -far:
+				far = -(log[i]["tip"] as Vector3).z
+				tip_h = (log[i]["tip"] as Vector3).y
+		_check(far > 1.4 and tip_h > 0.6 and tip_h < 1.7, "estocada clara: ponta à frente, na altura do peito", "%.2f m à frente, altura %.2f m" % [far, tip_h])
+	# Integridade do esqueleto.
+	var finite := true
+	for s: Dictionary in log:
+		for b: String in TRACK_BONES:
+			finite = finite and (s[b] as Vector3).is_finite() and (s[b] as Vector3).length() < 3.0
+	_check(finite, "esqueleto íntegro na sequência: ossos finitos e dentro de 3 m da cápsula")
+	_check(sk.get_bone_count() == 65 and vis.katana.get_parent() is BoneAttachment3D and (vis.katana.get_parent() as BoneAttachment3D).bone_name == "hand_r", "esqueleto de 65 ossos e katana presa à mão direita")
+
+	# 3. Três acertos no boneco, um por golpe, dano, reação e tremor só no Tsuki.
+	await _reset_player(Vector3(0, 0.05, 5.4), 0.0)
+	await _seconds(0.7)
+	var hits0 := dummy.hits.size()
+	var dmg0 := dummy.total_damage
+	var shakes0 := fx.shake_count()
+	var st: Array = []
+	var on_st := func(_d: StrikeData, i: int, _s: int) -> void: st.append(i)
+	c.strike_started.connect(on_st)
+	await _attack_tap()
+	await _ticks(3)
+	await _attack_tap()
+	await _wait_until(func(): return st.size() >= 2, 1.0)
+	await _ticks(3)
+	await _attack_tap()
+	await _wait_until(func(): return not c.is_attacking(), 2.0)
+	c.strike_started.disconnect(on_st)
+	var names: Array = dummy.hits.slice(hits0).map(func(h): return String(h["strike"]))
+	_check(names == ["kesa_avancado", "kiriage_de_retorno", "tsuki_de_passo_duplo"], "Kesa → Kiriage → Tsuki no boneco: um acerto por golpe", str(names))
+	_near(dummy.total_damage - dmg0, kesa.damage + kiri.damage + tsuki.damage, 0.001, "dano total da sequência (10 + 10 + 25)")
+	var swings := {}
+	for h: Dictionary in dummy.hits.slice(hits0):
+		swings[h["swing"]] = true
+	_check(swings.size() == 3, "um acerto por alvo por golpe (sem dano duplicado)")
+	_check(fx.shake_count() - shakes0 == 1, "tremor de câmera discreto só no Tsuki", "%d" % (fx.shake_count() - shakes0))
+	await _seconds(0.8)
+
+	# Erro: de costas para o boneco.
+	await _reset_player(Vector3(0, 0.05, 5.4), PI)
+	await _seconds(0.7)
+	hits0 = dummy.hits.size()
+	for k in 3:
+		await _attack_tap()
+		await _wait_until(func(): return c.index == k and c.is_attacking(), 0.5)
+		await _ticks(3)
+	await _wait_until(func(): return not c.is_attacking(), 2.0)
+	_check(dummy.hits.size() == hits0, "sequência de costas para o boneco: três erros, sem dano")
+	await _seconds(0.8)
+
+	# 4. Tempo de resposta do Tsuki isolado (depois do Kiriage terminar): início perceptível e contato.
+	await _reset_player(Vector3(0, 0.05, 6.4), 0.0)
+	await _seconds(0.7)
+	await _attack_tap()
+	await _ticks(3)
+	await _attack_tap()
+	await _wait_until(func(): return c.index == 1 and not c.is_attacking(), 2.0)
+	await _seconds(0.1)
+	await _wait_until(func(): return not c.is_attacking(), 1.0)
+	_player.global_position = Vector3(0, 0.05, 5.0)
+	var pre: Array = []
+	var stop_pre := _start_pose_log(pre)
+	await _ticks(4)
+	var base_hand: Vector3 = pre.back()["hand_r"]
+	var base_pelvis: Vector3 = pre.back()["pelvis"]
+	var n0 := pre.size()
+	hits0 = dummy.hits.size()
+	await _attack_tap()
+	var t_hit := await _wait_until(func(): return dummy.hits.size() > hits0, 0.8)
+	stop_pre.call()
+	var perceptible := -1.0
+	for i in range(n0, pre.size()):
+		if maxf((pre[i]["hand_r"] as Vector3).distance_to(base_hand), (pre[i]["pelvis"] as Vector3).distance_to(base_pelvis)) > 0.02:
+			perceptible = (i - n0 + 1) * DT
+			break
+	print("  [medição] Tsuki isolado: aperto → início perceptível %.3f s, aperto → contato %.3f s" % [perceptible, t_hit + 2 * DT])
+	_check(c.index == 2 and perceptible >= 0.0 and perceptible <= 0.05, "Tsuki isolado: aperto → início perceptível em até 0,05 s", "%.3f s" % perceptible)
+	_check(t_hit >= 0.0 and t_hit + 2 * DT <= 0.40, "Tsuki isolado: aperto → contato no boneco em até 0,40 s", "%.3f s" % (t_hit + 2 * DT))
+	await _wait_until(func(): return not c.is_attacking(), 1.5)
+	await _seconds(0.8)
+
+	# 5. Buffer e hitstop: um aperto durante o hitstop do Tsuki sobrevive e encadeia (reinicia a sequência).
+	await _reset_player(Vector3(0, 0.05, 5.4), 0.0)
+	await _seconds(0.7)
+	st.clear()
+	c.strike_started.connect(on_st)
+	await _attack_tap()
+	await _ticks(3)
+	await _attack_tap()
+	await _wait_until(func(): return st.size() >= 2, 1.0)
+	await _ticks(3)
+	await _attack_tap()
+	var froze := await _wait_until(func(): return c.in_hitstop() and c.index == 2, 1.5)
+	_check(froze >= 0.0, "Tsuki acerta e aciona o hitstop")
+	var hs_t := c.time
+	await _attack_tap()   # aperto guardado durante o hitstop
+	_check(absf(c.time - hs_t) < 0.0001, "relógio do golpe congelado durante o hitstop do Tsuki")
+	await _wait_until(func(): return st.size() >= 4, 1.5)
+	c.strike_started.disconnect(on_st)
+	_check(st.size() >= 4 and st[3] == 0, "aperto durante o hitstop do Tsuki sobrevive e reinicia a sequência", str(st))
+	await _wait_until(func(): return not c.is_attacking(), 2.0)
+	await _seconds(0.8)
+
+	# 6. Esquiva durante o Tsuki e Tsuki → corrida.
+	await _reset_player(Vector3(-25, 0.05, 25), -PI / 2.0)
+	await _seconds(0.7)
+	_key(KEY_W, true)
+	await _seconds(0.5)
+	await _attack_tap()
+	await _ticks(3)
+	await _attack_tap()
+	await _wait_until(func(): return c.index == 1, 1.0)
+	await _ticks(3)
+	await _attack_tap()
+	await _wait_until(func(): return c.index == 2 and c.clip_time() >= tsuki.dodge_cancel_from + 2.0 / 60.0, 1.0)
+	await _tap(KEY_SPACE)
+	var to_dodge := await _wait_until(func(): return _player.state == Player.State.DODGE, 0.3)
+	_check(to_dodge >= 0.0 and not c.is_attacking(), "esquiva cancela o Tsuki quando a janela abre", "%.3f s" % to_dodge)
+	var dstart := _player.global_position
+	await _wait_until(func(): return _player.state != Player.State.DODGE, 0.5)
+	_near(dstart.distance_to(_player.global_position), _player.tuning.dodge_distance, 0.3, "esquiva durante o Tsuki: distância preservada (m)")
+	var after := await _speed_trace(0.5)
+	_check(after.min >= cruise * 0.9, "Tsuki → esquiva → corrida: velocidade não cai", "mín %.2f" % after.min)
+	_key(KEY_W, false)
+	await _seconds(0.4)
+	_check(vis.katana.basis.get_rotation_quaternion().angle_to(Quaternion.IDENTITY) < deg_to_rad(3.0), "depois do Tsuki + esquiva a katana volta à empunhadura de corrida")
+	await _seconds(0.3)
+
+	await _reset_player(Vector3(-25, 0.05, 25), -PI / 2.0)
+	await _seconds(0.7)
+	for k in 3:
+		await _attack_tap()
+		await _wait_until(func(): return c.index == k and c.is_attacking(), 0.6)
+		await _ticks(3)
+	await _wait_until(func(): return c.index == 2 and c.move_cancel_open(), 1.5)
+	_key(KEY_W, true)
+	await _ticks(2)
+	_check(_player.state == Player.State.MOVE and not c.is_attacking(), "direção cancela a recuperação do Tsuki")
+	var run := await _speed_trace(0.5)
+	_check(run.last >= cruise * 0.9, "Tsuki → corrida: velocidade de corrida retomada", "%.2f" % run.last)
+	_key(KEY_W, false)
+	await _seconds(0.4)
+	_check(_player.state == Player.State.MOVE, "locomoção livre depois da sequência")
+
+	# 7. Colisão: a sequência inteira contra a parede.
+	var wall := StaticBody3D.new()
+	var ws := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(6, 3, 0.5)
+	ws.shape = box
+	wall.add_child(ws)
+	_main.add_child(wall)
+	wall.global_position = Vector3(-25, 1.5, 20)
+	await _reset_player(Vector3(-25, 0.05, 22.4), 0.0)
+	await _seconds(0.7)
+	var min_z := 99.0
+	await _attack_tap()
+	await _ticks(3)
+	await _attack_tap()
+	await _wait_until(func(): return c.index == 1, 1.0)
+	await _ticks(3)
+	await _attack_tap()
+	for k in int(1.4 / DT):
+		await physics_frame
+		min_z = minf(min_z, _player.global_position.z)
+	await _wait_until(func(): return not c.is_attacking(), 2.0)
+	_check(min_z > 20.25 + 0.2, "Kesa → Kiriage → Tsuki contra a parede: não atravessa", "z mín %.2f (face da parede 20.25)" % min_z)
+	wall.queue_free()
+	await _seconds(0.5)
+
+	# 8. A direção pressionada orienta o Tsuki.
+	await _reset_player(Vector3(0, 0.05, 5.4), 0.0)
+	await _seconds(0.7)
+	await _attack_tap()
+	await _wait_until(func(): return c.index == 0 and not c.is_attacking(), 1.5)
+	await _attack_tap()
+	await _wait_until(func(): return c.index == 1 and not c.is_attacking(), 1.5)
+	await _seconds(0.1)
+	_key(KEY_D, true)
+	await _attack_tap()
+	await _ticks(int(0.12 / DT))
+	_key(KEY_D, false)
+	var yaw_err := rad_to_deg(absf(angle_difference(_player.rotation.y, -PI / 2.0)))
+	_check(c.index == 2 and yaw_err < 20.0, "direção pressionada orienta o Tsuki", "erro %.0f°" % yaw_err)
+	await _wait_until(func(): return not c.is_attacking(), 1.5)
 	await _seconds(0.8)
