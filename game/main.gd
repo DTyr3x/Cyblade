@@ -6,9 +6,15 @@ extends Node3D
 ##   --out=<pasta>     pasta de saída das capturas e do resultado do playtest
 
 const PLAYTEST_SCRIPT := "res://tools/scripted_playtest.gd"
+## Posição do boneco de treino, de frente para o ponto de partida do jogador.
+const DUMMY_POSITION := Vector3(0.0, 0.0, 3.5)
 
 var stats := FrameStats.new()
 var last_device := "nenhum"
+
+## Boneco de treino (H2) e efeitos de combate.
+var dummy: TrainingDummy
+var effects: CombatEffects
 
 var _last_frame_usec := 0
 
@@ -25,10 +31,22 @@ func _ready() -> void:
 	hud.camera_rig = camera_rig
 	hud.player = player
 	hud.stats = stats
+	_build_combat()
 	if "--playtest" in OS.get_cmdline_user_args():
 		var driver: Node = (load(PLAYTEST_SCRIPT) as GDScript).new()
 		driver.set("main", self)
 		add_child(driver)
+
+
+func _build_combat() -> void:
+	dummy = TrainingDummy.new()
+	dummy.name = "BonecoDeTreino"
+	add_child(dummy)
+	dummy.global_position = DUMMY_POSITION
+	effects = CombatEffects.new()
+	effects.name = "CombateEfeitos"
+	add_child(effects)
+	effects.setup(player.combat, player.visual, player.hit_detector, camera_rig)
 
 
 func _physics_process(_delta: float) -> void:

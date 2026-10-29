@@ -41,6 +41,7 @@ func _run() -> void:
 	await _test_ramp()
 	await _test_humanoid()
 	await _test_h11()
+	await _test_h2()
 	print("== resultado: %d ok, %d falha(s) ==" % [_passed, _failed])
 	quit(1 if _failed > 0 else 0)
 
@@ -836,3 +837,273 @@ func _test_h11() -> void:
 	_check(rad_to_deg(off_dash) < 1.0, "esquiva: visual sem atraso de giro", "%.2f°" % rad_to_deg(off_dash))
 	_key(KEY_W, false)
 	await _seconds(0.3)
+
+
+# --- H2: combate de katana ------------------------------------------------------
+
+func _attack_tap() -> void:
+	_key(KEY_J, true)
+	await physics_frame
+	_key(KEY_J, false)
+	await physics_frame
+
+
+## Espera até `cond` ficar verdadeira (máx. `limit` s). Devolve o tempo gasto, ou -1.
+func _wait_until(cond: Callable, limit := 2.0) -> float:
+	var t := 0.0
+	while t < limit:
+		if cond.call():
+			return t
+		await physics_frame
+		t += DT
+	return -1.0
+
+
+func _angle_to_dummy() -> float:
+	var d := _main.get("dummy") as Node3D
+	var to := d.global_position - _player.global_position
+	to.y = 0.0
+	return rad_to_deg((-_player.global_transform.basis.z).angle_to(to.normalized()))
+
+
+func _test_h2() -> void:
+	print("-- H2: combate de katana")
+	var c := _player.combat
+	var vis: HumanoidVisual = _player.visual
+	var cruise := _player.tuning.max_speed
+	var dummy := _main.get("dummy") as TrainingDummy
+	var fx := _main.get("effects") as CombatEffects
+	var s1 := c.combo.strikes[0]
+
+	# Dados dos golpes: ordem das janelas e arquivo editável.
+	_check(c.combo.strikes.size() == 3, "combo da katana tem 3 golpes")
+	_check(ResourceLoader.exists(ComboSet.DEFAULT_PATH), "dados dos golpes em arquivo editável (.tres)")
+	var windows_ok := true
+	for s: StrikeData in c.combo.strikes:
+		windows_ok = windows_ok and s.active_start < s.active_end and s.active_end <= s.chain_open \
+			and s.chain_open < s.clip_length() and s.dodge_cancel_from < s.move_cancel_from \
+			and s.move_cancel_from < s.clip_length() and s.speed > 0.0
+	_check(windows_ok, "janelas de cada golpe em ordem (contato < encadeamento < cancelamento < fim)")
+	_check(c.combo.strikes[2].camera_shake > 0.0 and c.combo.strikes[0].camera_shake == 0.0 and c.combo.strikes[1].camera_shake == 0.0, "tremor de câmera só no golpe final")
+	_check(c.combo.strikes[0].mirrored != c.combo.strikes[1].mirrored, "golpes 1 e 2 são espelhados entre si")
+
+	# Golpe individual sem combo e sem alvo: fases, duração, volta a MOVE, erro registrado.
+	await _reset_player(Vector3(-25, 0.05, 25), -PI / 2.0)
+	var misses0 := _player.hit_detector.total_misses
+	var phases: Array = []
+	var on_phase := func(p: int) -> void: phases.append(p)
+	c.strike_phase_changed.connect(on_phase)
+	await _attack_tap()
+	_check(c.is_attacking() and _player.state == Player.State.ATTACK, "ataque: entra em ATTACK imediatamente")
+	_check(c.index == 0, "primeiro ataque é o golpe 1")
+	var took := await _wait_until(func(): return not c.is_attacking(), 1.5)
+	c.strike_phase_changed.disconnect(on_phase)
+	_near(took, s1.total_real(), 0.05, "golpe 1: duração real = trecho / velocidade (s)")
+	_check(phases == [CombatController.Phase.WINDUP, CombatController.Phase.ACTIVE, CombatController.Phase.RECOVERY, CombatController.Phase.NONE], "fases em ordem: preparação, contato, recuperação, fim", str(phases))
+	await physics_frame
+	_check(_player.state == Player.State.MOVE, "depois do golpe volta a MOVE (não fica travado)")
+	_check(_player.hit_detector.total_misses == misses0 + 1, "golpe no vazio registra erro")
+	await _seconds(0.8)
+	await _attack_tap()
+	_check(c.index == 0, "depois do tempo de reinício o ataque recomeça no golpe 1", "índice %d" % c.index)
+	await _wait_until(func(): return not c.is_attacking(), 1.5)
+
+	# Encadeamento de 3 golpes com buffer: apertos logo no início de cada golpe.
+	await _reset_player(Vector3(-25, 0.05, 25), -PI / 2.0)
+	await _seconds(0.7)   # deixa a cadeia reiniciar no golpe 1
+	var started: Array = []
+	var on_start := func(_d: StrikeData, i: int, _s: int) -> void: started.append(i)
+	c.strike_started.connect(on_start)
+	await _attack_tap()
+	await _ticks(3)
+	await _attack_tap()   # guardado no buffer; o golpe 2 só entra quando a janela abre
+	var t2 := await _wait_until(func(): return started.size() >= 2, 1.0)
+	_check(started.size() >= 2 and started[1] == 1, "buffer: segundo aperto encadeia o golpe 2")
+	_near(t2, s1.to_real(s1.chain_open) - 4 * DT, 0.04, "golpe 2 só entra quando a janela de encadeamento abre (s)")
+	await _ticks(3)
+	await _attack_tap()
+	await _wait_until(func(): return started.size() >= 3, 1.0)
+	_check(started.size() >= 3 and started[2] == 2, "terceiro aperto encadeia o golpe 3 (cadeia de 3 golpes)")
+	await _wait_until(func(): return c.clip_time() >= c.current.chain_open - 0.15)   # o golpe final tem janela mais tardia
+	await _attack_tap()
+	await _wait_until(func(): return started.size() >= 4, 1.5)
+	_check(started.size() >= 4 and started[3] == 0, "depois do golpe 3 a cadeia recomeça no golpe 1")
+	c.strike_started.disconnect(on_start)
+	await _wait_until(func(): return not c.is_attacking(), 2.0)
+	await _seconds(0.7)
+
+	# Sem novo aperto não há encadeamento.
+	await _reset_player(Vector3(-25, 0.05, 25), -PI / 2.0)
+	var n_before := c.swing_id
+	await _attack_tap()
+	await _wait_until(func(): return not c.is_attacking(), 1.5)
+	_check(c.swing_id == n_before + 1, "sem novo aperto não há encadeamento", "golpes %d" % (c.swing_id - n_before))
+	await _seconds(0.7)
+
+	# Cancelamento por esquiva e golpe → esquiva → corrida (parâmetros da esquiva intactos).
+	await _reset_player(Vector3(-25, 0.05, 25), -PI / 2.0)
+	_key(KEY_W, true)
+	await _seconds(0.5)
+	await _attack_tap()
+	await _ticks(int(round(s1.to_real(s1.dodge_cancel_from) / DT)) + 2)
+	await _tap(KEY_SPACE)
+	var to_dodge := await _wait_until(func(): return _player.state == Player.State.DODGE, 0.3)
+	_check(to_dodge >= 0.0 and not c.is_attacking(), "esquiva cancela o golpe quando a janela abre", "%.3f s" % to_dodge)
+	var dodge_start := _player.global_position
+	await _wait_until(func(): return _player.state != Player.State.DODGE, 0.5)
+	var dodged := dodge_start.distance_to(_player.global_position)
+	_near(dodged, _player.tuning.dodge_distance, 0.3, "esquiva depois de golpe: distância preservada (m)")
+	var after := await _speed_trace(0.5)
+	_check(after.min >= cruise * 0.9, "golpe → esquiva → corrida: velocidade da cápsula não cai", "mín %.2f" % after.min)
+	_key(KEY_W, false)
+	await _seconds(0.5)
+
+	# Esquiva apertada logo depois do ataque sai assim que a janela abre.
+	await _reset_player(Vector3(-25, 0.05, 25), -PI / 2.0)
+	await _attack_tap()
+	await _tap(KEY_SPACE)
+	var quick := await _wait_until(func(): return _player.state == Player.State.DODGE, 0.3)
+	_check(quick >= 0.0 and quick <= s1.to_real(s1.dodge_cancel_from) + 0.05, "esquiva apertada logo após o ataque sai assim que a janela abre", "%.3f s" % quick)
+	await _seconds(0.8)
+
+	# Acerto no boneco: um acerto por golpe e dano correto.
+	await _reset_player(Vector3(0, 0.05, 5.4), 0.0)
+	var dmg0 := dummy.total_damage
+	var hits0 := dummy.hits.size()
+	await _attack_tap()
+	await _wait_until(func(): return not c.is_attacking(), 1.5)
+	_check(dummy.hits.size() == hits0 + 1, "golpe 1 acerta o boneco exatamente uma vez", "acertos %d" % (dummy.hits.size() - hits0))
+	_near(dummy.total_damage - dmg0, s1.damage, 0.001, "dano do golpe 1")
+	_check(dummy.hits.size() > hits0 and String(dummy.hits.back()["strike"]) == "corte_diagonal", "contato registrado com o nome do golpe")
+
+	# Cadeia completa no boneco: sem dano duplicado.
+	await _seconds(0.8)
+	await _reset_player(Vector3(0, 0.05, 5.4), 0.0)
+	await _seconds(0.5)
+	hits0 = dummy.hits.size()
+	var shakes0 := fx.shake_count()
+	for i in 3:
+		await _attack_tap()
+		await _ticks(2)
+		await _attack_tap()
+		await _wait_until(func(): return c.index == (i + 1) % 3 or not c.is_attacking(), 1.0)
+	await _wait_until(func(): return not c.is_attacking(), 2.0)
+	var got := dummy.hits.size() - hits0
+	_check(got >= 3, "cadeia de golpes no boneco: um acerto por golpe", "acertos %d" % got)
+	var seen := {}
+	var dup := false
+	for h: Dictionary in dummy.hits.slice(hits0):
+		if seen.has(h["swing"]):
+			dup = true
+		seen[h["swing"]] = true
+	_check(not dup, "nenhum golpe acertou o mesmo alvo duas vezes (sem dano duplicado)")
+	_check(fx.shake_count() - shakes0 >= 1, "o golpe final pede tremor discreto de câmera", "%d" % (fx.shake_count() - shakes0))
+	var total_swings := c.swing_id
+	_check(fx.shake_count() <= total_swings / 3 + 1, "tremor só nos golpes finais, não em todos")
+
+	# Erro: de costas para o boneco (fora do cone de assistência) não acerta.
+	await _seconds(0.8)
+	await _reset_player(Vector3(0, 0.05, 5.4), PI)
+	hits0 = dummy.hits.size()
+	await _attack_tap()
+	await _wait_until(func(): return not c.is_attacking(), 1.5)
+	_check(dummy.hits.size() == hits0, "golpe de costas para o boneco erra (sem dano)")
+	await _seconds(0.8)
+
+	# Assistência de mira: 50° fora, o corpo gira para o boneco.
+	await _reset_player(Vector3(0, 0.05, 5.4), deg_to_rad(50.0))
+	var off_before := _angle_to_dummy()
+	await _attack_tap()
+	await _ticks(int(0.15 / DT))
+	var off_after := _angle_to_dummy()
+	_check(off_after < off_before - 20.0, "assistência de mira gira o corpo para o boneco", "%.0f° → %.0f°" % [off_before, off_after])
+	await _wait_until(func(): return not c.is_attacking(), 1.5)
+	await _seconds(0.8)
+
+	# Orientação responsiva: a direção pressionada manda sobre a assistência.
+	await _reset_player(Vector3(0, 0.05, 5.4), 0.0)
+	_key(KEY_D, true)
+	await _attack_tap()
+	await _ticks(int(0.12 / DT))
+	_key(KEY_D, false)
+	var yaw_err := rad_to_deg(absf(angle_difference(_player.rotation.y, -PI / 2.0)))
+	_check(yaw_err < 20.0, "direção pressionada orienta o golpe", "erro %.0f°" % yaw_err)
+	await _wait_until(func(): return not c.is_attacking(), 1.5)
+	await _seconds(0.8)
+
+	# Hitstop: o relógio do golpe congela no acerto; o jogo segue.
+	await _reset_player(Vector3(0, 0.05, 5.4), 0.0)
+	await _attack_tap()
+	var froze := await _wait_until(func(): return c.in_hitstop(), 1.0)
+	_check(froze >= 0.0, "acerto aciona o hitstop")
+	var t_a := c.time
+	var frame_a := Engine.get_physics_frames()
+	await _ticks(3)
+	_check(absf(c.time - t_a) < 0.0001 and Engine.get_physics_frames() > frame_a, "hitstop congela só o golpe (o jogo segue rodando)")
+	var hs := 0.0
+	while c.in_hitstop() and hs < 0.5:
+		await physics_frame
+		hs += DT
+	_near(hs + 3 * DT, s1.hitstop, 0.03, "duração do hitstop do golpe 1 (s)")
+	await _wait_until(func(): return not c.is_attacking(), 1.5)
+	await _seconds(0.8)
+
+	# AnimationTree: OneShot ativo, mistura sobe e desce.
+	await _reset_player(Vector3(-25, 0.05, 25), -PI / 2.0)
+	await _attack_tap()
+	await _ticks(6)
+	_check(vis.is_striking() and bool(vis.anim_tree["parameters/Strike/active"]), "AnimationTree: OneShot do golpe ativo")
+	_check(vis.strike_blend() > 0.5, "mistura do golpe sobre o corpo sobe", "%.2f" % vis.strike_blend())
+	await _wait_until(func(): return not c.is_attacking(), 1.5)
+	await _seconds(0.4)
+	_check(not vis.is_striking() and vis.strike_blend() < 0.05, "depois do golpe a mistura volta à locomoção", "%.2f" % vis.strike_blend())
+	_check(not bool(vis.anim_tree["parameters/Strike/active"]), "OneShot encerrado depois do golpe")
+	_near(vis.blend_position(), 0.0, 0.05, "parado depois do golpe: locomoção em Idle")
+
+	# Recuperação cancelável por movimento: não fica preso depois de atacar.
+	await _reset_player(Vector3(-25, 0.05, 25), -PI / 2.0)
+	await _attack_tap()
+	await _wait_until(func(): return c.move_cancel_open(), 1.0)
+	_key(KEY_W, true)
+	await _ticks(2)
+	_check(_player.state == Player.State.MOVE and not c.is_attacking(), "direção cancela a recuperação e volta a MOVE")
+	var run_trace := await _speed_trace(0.5)
+	_check(run_trace.last >= cruise * 0.9, "depois de atacar a corrida retoma a velocidade", "%.2f" % run_trace.last)
+	_key(KEY_W, false)
+	await _seconds(0.4)
+
+	# Obstáculo: o avanço do golpe não atravessa uma parede.
+	var wall := StaticBody3D.new()
+	var ws := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(6, 3, 0.5)
+	ws.shape = box
+	wall.add_child(ws)
+	_main.add_child(wall)
+	wall.global_position = Vector3(-25, 1.5, 20)
+	await _reset_player(Vector3(-25, 0.05, 21.6), 0.0)
+	var min_z := 99.0
+	for i in 3:
+		await _attack_tap()
+		await _ticks(2)
+		await _attack_tap()
+		for k in int(0.5 / DT):
+			await physics_frame
+			min_z = minf(min_z, _player.global_position.z)
+	await _wait_until(func(): return not c.is_attacking(), 2.0)
+	_check(min_z > 20.25 + 0.2, "golpes contra a parede não a atravessam", "z mín %.2f (face da parede 20.25)" % min_z)
+	_check(is_finite(_player.global_position.z), "posição finita depois de golpes na parede")
+	wall.queue_free()
+	await _seconds(0.5)
+
+	# Rastro e sons existem.
+	await _reset_player(Vector3(-25, 0.05, 25), -PI / 2.0)
+	await _attack_tap()
+	var trail_max := 0
+	for i in int(0.6 / DT):
+		await physics_frame
+		trail_max = maxi(trail_max, fx.trail_samples())
+	_check(trail_max >= 2, "rastro da katana é gerado durante o golpe", "%d amostras" % trail_max)
+	_check(fx._swish_streams.size() == 3 and fx._hit_heavy != null, "sons provisórios sintetizados prontos")
+	await _wait_until(func(): return not c.is_attacking(), 1.5)
+	await _seconds(0.5)

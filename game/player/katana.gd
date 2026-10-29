@@ -5,6 +5,9 @@ extends RefCounted
 
 const BLADE_LENGTH := 0.78
 const HANDLE_LENGTH := 0.26
+## Trecho da lâmina (m a partir do punho, ao longo de +Y local) usado na detecção de acerto.
+const BLADE_START := 0.21
+const BLADE_END := 0.99
 
 
 static func build() -> Node3D:

@@ -39,6 +39,10 @@ var _look_ahead := 0.0
 var _look_ahead_tau := 0.3
 var _follow_pos := Vector3.ZERO
 var _ahead := Vector3.ZERO
+var _shake_amp := 0.0
+var _shake_left := 0.0
+var _shake_total := 0.01
+var _shake_clock := 0.0
 
 
 func _ready() -> void:
@@ -89,6 +93,15 @@ func set_preset(index: int, instant := false) -> void:
 	preset_changed.emit(presets[preset_index])
 
 
+## Tremor curto e discreto (amplitude em m, duração em s). Decai suavemente. Pedidos menores que o
+## tremor em andamento não o reduzem.
+func add_shake(amplitude: float, duration: float) -> void:
+	if amplitude >= _shake_amp * (_shake_left / _shake_total):
+		_shake_amp = amplitude
+		_shake_left = duration
+		_shake_total = maxf(duration, 0.01)
+
+
 func reset_yaw() -> void:
 	yaw = 0.0
 
@@ -104,6 +117,7 @@ func _process(delta: float) -> void:
 	if target != null:
 		_update_follow(delta)
 	_blend_preset(delta)
+	_update_shake(delta)
 	_apply()
 
 
@@ -152,6 +166,14 @@ func _blend_preset(delta: float) -> void:
 	_look_ahead_tau = lerpf(_look_ahead_tau, p.look_ahead_tau, a)
 
 
+func _update_shake(delta: float) -> void:
+	if _shake_left > 0.0:
+		_shake_left = maxf(_shake_left - delta, 0.0)
+		_shake_clock += delta
+	if _shake_left <= 0.0:
+		_shake_amp = 0.0
+
+
 func _apply() -> void:
 	var ground_forward := Vector3(-sin(yaw), 0.0, -cos(yaw))
 	global_position = _follow_pos + _ahead \
@@ -160,6 +182,9 @@ func _apply() -> void:
 	if camera != null:
 		camera.position = Vector3(0.0, 0.0, _distance)
 		camera.fov = _fov
+		var k := (_shake_left / _shake_total) if _shake_amp > 0.0 else 0.0
+		camera.h_offset = sin(_shake_clock * 130.0) * _shake_amp * k * k
+		camera.v_offset = sin(_shake_clock * 97.0 + 1.3) * _shake_amp * k * k
 
 
 ## Valores atuais (suavizados), para HUD e testes.

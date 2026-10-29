@@ -1,0 +1,41 @@
+[gd_resource type="Resource" script_class="ComboSet" format=3]
+
+[ext_resource type="Script" path="res://game/combat/combo_set.gd" id="1_g1eqk"]
+[ext_resource type="Script" path="res://game/combat/strike_data.gd" id="2_2ijln"]
+
+[sub_resource type="Resource" id="Resource_3vimt"]
+script = ExtResource("2_2ijln")
+id = &"corte_diagonal"
+display_name = "Corte diagonal"
+
+[sub_resource type="Resource" id="Resource_w5hie"]
+script = ExtResource("2_2ijln")
+id = &"corte_reverso"
+display_name = "Corte reverso"
+mirrored = true
+speed = 1.85
+reaction = 1
+
+[sub_resource type="Resource" id="Resource_ofyvb"]
+script = ExtResource("2_2ijln")
+id = &"golpe_final"
+display_name = "Golpe final"
+clip_to = 1.35
+speed = 1.35
+active_start = 0.26
+active_end = 0.5
+chain_open = 0.78
+move_cancel_from = 0.85
+advance_distance = 1.5
+advance_start = 0.12
+advance_end = 0.46
+turn_lock = 0.24
+damage = 25.0
+hitstop = 0.09
+knockback = 0.55
+reaction = 2
+camera_shake = 0.03
+
+[resource]
+script = ExtResource("1_g1eqk")
+strikes = Array[ExtResource("2_2ijln")]([SubResource("Resource_3vimt"), SubResource("Resource_w5hie"), SubResource("Resource_ofyvb")])

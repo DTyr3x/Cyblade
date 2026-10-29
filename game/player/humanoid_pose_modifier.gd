@@ -45,6 +45,8 @@ var _lean_fwd := 0.0
 var _lean_side := 0.0
 ## Desvio de giro (rad): quanto o quadril visual está atrás da frente da cápsula.
 var _turn_offset := 0.0
+## Peso do golpe sobre o corpo: com golpe ativo o clipe manda, e a postura de corrida, a inclinação e a torção de giro se apagam.
+var _strike_blend := 0.0
 var _dt := 0.0083
 var _prev_ratio := 0.0
 var _chest_ref_tau := 0.4
@@ -85,6 +87,10 @@ func set_motion(delta: float, velocity: Vector3, forward: Vector3, max_speed: fl
 
 
 ## Desvio de giro atual entre a frente da cápsula e o quadril visual (rad, com sinal).
+func set_strike_blend(amount: float) -> void:
+	_strike_blend = amount
+
+
 func set_turn_offset(offset: float) -> void:
 	_turn_offset = offset
 
@@ -112,14 +118,14 @@ func _process_modification() -> void:
 	for n: String in share:
 		var lean := _lean_fwd + deg_to_rad(dash_lean_deg) * _dash_amount
 		var q := Quaternion(Vector3.UP, -_turn_offset * torso_lead * twist[n] / 0.7) * Quaternion(Vector3.RIGHT, lean * share[n]) * Quaternion(MODEL_FORWARD, _lean_side * share[n])
-		_rotate_model_space(sk, _bones[n], q)
+		_rotate_model_space(sk, _bones[n], Quaternion.IDENTITY.slerp(q, 1.0 - _strike_blend))
 	_update_chest_ref(sk)
 	# Braço da katana para trás: o braço é conduzido para uma direção-alvo (cai rumo à postura
 	# de espadachim conforme `_run_amount`), em vez de somar um desvio ao balanço do clipe.
 	var arm_w := maxf(maxf(_run_amount, _dash_amount), stance.idle_amount)
 	# Na corrida o braço conserva só uma fração do balanço do clipe (`arm_swing_keep`).
 	var firm := lerpf(1.0, 1.0 - stance.arm_swing_keep, maxf(_run_amount, _dash_amount))
-	arm_w *= firm
+	arm_w *= firm * (1.0 - _strike_blend)
 	if arm_w > 0.001:
 		var chest: int = _bones["spine_03"]
 		_aim_bone(sk, _bones["upperarm_r"], _bones["lowerarm_r"], _chest_dir(sk, chest, stance.upper_dir), arm_w)
