@@ -52,6 +52,7 @@ func _run() -> void:
 	await _segment("esquivas", 7.0, _dodges)
 	await _segment("gamepad_simulado", 5.0, _gamepad)
 	await _segment("rampa_e_plataforma", 5.0, _ramp)
+	await _segment("combate_katana", 14.0, _combat)
 	for i in 3:
 		var names := ["combate", "exploracao", "chefe"]
 		await _segment("camera_" + names[i], 4.0, _preset_run.bind(i, names[i]))
@@ -201,6 +202,43 @@ func _ramp() -> void:
 		await get_tree().process_frame
 	_move(Vector2.ZERO)
 	_results["ramp_max_height_m"] = max_y
+
+
+## Combate: corrida até o boneco, cadeia de 3 golpes, esquiva, corrida, repetido 3 vezes.
+func _combat() -> void:
+	var dummy := main.get("dummy") as TrainingDummy
+	var hits0 := dummy.hits.size()
+	var dmg0 := dummy.total_damage
+	_teleport(Vector3(0, 0.05, 7.4), 0.0)
+	await _wait(0.3)
+	_move(Vector2(0, -1))
+	await _wait(0.55)
+	var shot := false
+	for round_i in 3:
+		for i in 3:
+			Input.action_press("attack")
+			await _wait(0.05)
+			Input.action_release("attack")
+			await _wait(0.30)
+			if round_i == 0 and i == 1 and not shot:
+				shot = true
+				await _shot("h2_01_combate_golpe.png")
+		await _wait(0.6)
+		_move(Vector2(0, 1))
+		_pending_dodge = true
+		Input.action_press("dodge")
+		await _wait(0.05)
+		Input.action_release("dodge")
+		await _wait(0.3)
+		_move(Vector2(0, -1))
+		await _wait(0.7)
+	_move(Vector2.ZERO)
+	await _wait(0.5)
+	_results["combate"] = {
+		"acertos": dummy.hits.size() - hits0,
+		"dano_total": dummy.total_damage - dmg0,
+		"erros": _player.hit_detector.total_misses,
+	}
 
 
 func _preset_run(index: int, label: String) -> void:

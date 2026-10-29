@@ -5,7 +5,7 @@ extends CanvasLayer
 
 const REFRESH_SECONDS := 0.1
 const RECENT_FRAMES := 240
-const HINT_TEXT := "Teclado: WASD mover · Espaço esquiva · Q/E ou botão direito+mouse girar câmera · R centralizar · 1/2/3 enquadramento · F3 HUD · Esc sair\nGamepad: stick esq. mover · B esquiva · stick dir. girar câmera · R3 centralizar · ←/→ enquadramento · Back HUD"
+const HINT_TEXT := "Teclado: WASD mover · J ou mouse esq. atacar · Espaço esquiva · Q/E ou botão direito+mouse girar câmera · R centralizar · 1/2/3 enquadramento · F3 HUD · Esc sair\nGamepad: stick esq. mover · X atacar · B esquiva · stick dir. girar câmera · R3 centralizar · ←/→ enquadramento · Back HUD"
 
 var camera_rig: CameraRig
 var player: Player
@@ -62,6 +62,19 @@ func _process(delta: float) -> void:
 	_label.text = _build_text()
 
 
+## Linhas do modo de depuração do combate: golpe, fase, relógio, buffer e últimos contatos.
+func _combat_text() -> String:
+	var c := player.combat
+	var d := player.hit_detector
+	var phase: String = CombatController.Phase.keys()[c.phase]
+	var name_s := String(c.current.id) if c.current != null and c.is_attacking() else "-"
+	var line := "Combate: %s [%s] t %.2f s  buffer %s  acertos %d  erros %d" % [name_s, phase, c.time, "sim" if c.has_buffered_attack() else "não", d.total_hits, d.total_misses]
+	for e in d.event_log.slice(maxi(d.event_log.size() - 3, 0)):
+		line += "
+  · %s %s golpe#%s%s" % [e.get("event"), e.get("strike"), e.get("swing"), (" dano %.0f" % e["damage"]) if e.has("damage") else ""]
+	return line
+
+
 func player_screen_height_percent() -> float:
 	if camera_rig == null or camera_rig.camera == null or player == null:
 		return 0.0
@@ -89,4 +102,6 @@ func _build_text() -> String:
 	if player != null:
 		lines.append("Jogador: %s  vel %.2f m/s  i-frames: %s" % [Player.State.keys()[player.state], player.horizontal_velocity().length(), "sim" if player.is_invulnerable() else "não"])
 		lines.append("Altura na tela: %.1f %% (referência Dinghai ~9–11 %%)" % player_screen_height_percent())
+		if player.combat != null:
+			lines.append(_combat_text())
 	return "\n".join(lines)

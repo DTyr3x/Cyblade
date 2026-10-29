@@ -18,3 +18,17 @@ Itens registrados para acompanhamento. Nenhum bloqueia o Pull Request do Marco 1
 | 7 | **Custo do pipeline de modificadores do esqueleto:** ~1,4 ms por personagem (medido; o script do modificador custa ~36 µs). Não escala para muitos inimigos | Média | H2: modificadores só no jogador; inimigos só com `AnimationTree` |
 | 8 | **Sem clipes de partida, parada e giro** (não existem no pacote Standard); deslize residual dos pés (0,57 m/s médio) | Média: é o ponto principal da "naturalidade" | H2: clipes autorais no Blender ou pacote com transições |
 | 9 | **Intermitência no playtest em janela: não reproduzida.** No H1, 2 de 5 execuções travaram ao trocar de enquadramento. No H1.1: 17 execuções seguidas sem travar (13 isoladas, 3 com testes headless rodando em paralelo, 1 com o vigia novo). Hipótese mais provável: concorrência com outras instâncias do Godot durante a sessão do H1 (não confirmada). O playtest agora tem um vigia (20 s sem quadros: registra trecho e quadro e encerra), então um travamento futuro gera diagnóstico. Dados em `docs/h1-1/` | Baixa | Reabrir se o vigia disparar |
+
+## Pendências abertas pelo H2 (combate de katana)
+
+| # | Pendência | Impacto | Onde tratar |
+|---|---|---|---|
+| 10 | **Combo de 3 golpes autorais completo** (Kesa, Kiriage, Tsuki), aguardando a aprovação do Tsuki. Sem clipe do pacote no combo | Resolvida na implementação; depende do playtest | Playtest do PO |
+| 11 | **Pés escorregam no avanço dos golpes:** o clipe é no lugar e o avanço vem da cápsula (0,9 m nos golpes 1 e 2, 1,5 m no final) | Média | H2.1: sincronizar o avanço com os apoios ou usar clipes com deslocamento (root motion) |
+| 12 | **Pico de quadro de ~26 ms** (1 por execução em 2 de 4 execuções do playtest de combate) | Baixa | Perfilar com o profiler do Godot; suspeita de primeira compilação de pipeline |
+| 13 | **Katana procedural presa ao punho** sem ajuste fino de empunhadura por golpe; o clipe foi feito para outra arma | Média | H2.1 |
+| 14 | **Sons e efeitos provisórios** (sintetizados / primitivos) | Baixa | Marco de som e VFX |
+| 15 | **Alvo único sem IA e sem fim de vida:** só registra dano; sem morte | Esperado | Marco de inimigos |
+| 16 | **Desempenho medido com o Phantom Blade Zero aberto** (H2.2): FPS 129 a 144, p99 22 a 27 ms, não comparável com o H2/H2.1 | Baixa | Repetir `tools\playtest.ps1` com o jogo de referência fechado |
+| 17 | **Execução de playtest em janela terminou sem gravar resultados** (1 de 4 no H2.3), sem estourar o tempo e sem causa conhecida; repetida, concluiu. Execuções em janela também já travaram em H1 e em capturas (HUD/painéis) | Baixa | Usar `tools\run_with_timeout.ps1` (encerra só o PID iniciado); investigar com o vigia do playtest |
+| 18 | **Desempenho do H2.3 medido com o Phantom Blade Zero aberto** | Baixa | Repetir `tools\playtest.ps1` com o jogo de referência fechado |

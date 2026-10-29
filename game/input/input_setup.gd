@@ -12,6 +12,7 @@ const BINDINGS := {
 	"move_up": {"keys": [KEY_W, KEY_UP], "pad_axes": [[JOY_AXIS_LEFT_Y, -1.0]]},
 	"move_down": {"keys": [KEY_S, KEY_DOWN], "pad_axes": [[JOY_AXIS_LEFT_Y, 1.0]]},
 	"dodge": {"keys": [KEY_SPACE, KEY_SHIFT], "pad_buttons": [JOY_BUTTON_B]},
+	"attack": {"keys": [KEY_J], "mouse_buttons": [MOUSE_BUTTON_LEFT], "pad_buttons": [JOY_BUTTON_X]},
 	"camera_yaw_left": {"keys": [KEY_Q], "pad_axes": [[JOY_AXIS_RIGHT_X, -1.0]]},
 	"camera_yaw_right": {"keys": [KEY_E], "pad_axes": [[JOY_AXIS_RIGHT_X, 1.0]]},
 	"camera_reset": {"keys": [KEY_R], "pad_buttons": [JOY_BUTTON_RIGHT_STICK]},
@@ -39,6 +40,10 @@ func register_all() -> void:
 			var ev := InputEventKey.new()
 			ev.physical_keycode = key as Key
 			InputMap.action_add_event(action, ev)
+		for mb: int in binding.get("mouse_buttons", []):
+			var mev := InputEventMouseButton.new()
+			mev.button_index = mb as MouseButton
+			InputMap.action_add_event(action, mev)
 		for button: int in binding.get("pad_buttons", []):
 			var ev := InputEventJoypadButton.new()
 			ev.button_index = button as JoyButton
