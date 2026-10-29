@@ -1,5 +1,7 @@
 # H2: combate de katana
 
+> **Atualização H2.2:** o golpe 2 deste documento (corte reverso, espelhado) foi substituído pelo **Kiriage de retorno** autoral (`docs/h2-2-kiriage.md`), e o golpe 1 pelo **Kesa avançado** (`docs/h2-1-combate-katana.md`). A arquitetura e as regras abaixo continuam valendo; os valores da tabela de parâmetros dos golpes 1 e 2 estão desatualizados (ver `game/data/katana_combo.tres`).
+
 Status: **implementado e testado por script. NÃO aprovado: depende do playtest humano do PO.**
 Branch `feat/h2-combate-katana`. Sem merge. Locomoção, câmera e esquiva aprovadas não foram alteradas.
 

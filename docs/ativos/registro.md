@@ -57,3 +57,12 @@ Rastro, faíscas e clarão são feitos em código (malha dinâmica, `CPUParticle
 | Base de terceiros usada | Só o esqueleto do UAL e a pose dos dedos do clipe `Sword_Idle` (CC0) |
 | Referências | Princípios de kenjutsu (kesa-giri, okuri-ashi). Nada copiado de Phantom Blade Zero ou Dinghai |
 | Licença | Do projeto |
+
+## Golpe autoral "Kiriage de retorno" (H2.2)
+
+| Campo | Valor |
+|---|---|
+| Arquivo | `assets/animations/katana/katana_kiriage.res` (Animation do Godot, 31 quadros a 60 Hz) |
+| Origem | **Original do CYBLADE.** Poses-chave em código (`tools/blender/katana_kiriage_keys.py`), IK no Blender 4.5.10 sobre o esqueleto do UAL (CC0). Começa da pose do Kesa aprovado. Regerar: `tools/build_katana_strike.ps1` |
+| Referências | Princípios de kenjutsu (kiriage, okuri-ashi). Nada copiado de Phantom Blade Zero ou Dinghai |
+| Licença | Do projeto |
