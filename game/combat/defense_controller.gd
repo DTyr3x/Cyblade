@@ -35,12 +35,17 @@ func _init(defense_data: DefenseData = null) -> void:
 	data = defense_data if defense_data != null else DefenseData.load_default()
 
 
+## O jogador apertou defesa em `t` (mesmo que a guarda só comece depois, por estar em reação ou
+## no buffer). Serve para dizer no HUD quanto o aperto atrasou em relação ao último golpe recebido.
+func note_input(t: float) -> void:
+	last_late_by = (t - _last_hit_t) if t - _last_hit_t <= 0.3 else -1.0
+
+
 ## Aperto do botão de defesa no instante `t`. Abre a janela perfeita, salvo durante o bloqueio de
 ## parry em falso (aí só levanta a guarda normal).
 func press(t: float) -> void:
 	guarding = true
 	_press_t = t
-	last_late_by = (t - _last_hit_t) if t - _last_hit_t <= 0.3 else -1.0
 	if t < _lockout_until:
 		_perfect_until = -INF
 		_attempt_open = false

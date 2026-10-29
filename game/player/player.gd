@@ -34,6 +34,13 @@ var defense: DefenseController
 var vitals: CombatVitals
 
 var _defend_buffer := 0.0
+## Aperto de defesa recebido pelo evento de entrada, consumido no próximo passo de física. Mais confiável
+## que `is_action_just_pressed` na física, que pode perder um toque curto entre dois passos.
+var _defend_pending := false
+## Ataque apertado no "mesmo instante" da defesa (até um quadro de 60 Hz depois) é descartado: a defesa
+## tem prioridade, mesmo que os dois eventos cheguem à física em passos vizinhos.
+const SAME_INSTANT := 0.02
+var _attack_ignore_until := -1.0
 ## Hitstop local do jogador (relógio de combate): congela corpo e buffers, nenhum aperto se perde.
 var _freeze_until := -1.0
 var _push_vel := Vector3.ZERO
@@ -77,7 +84,8 @@ func is_invulnerable() -> bool:
 
 func _physics_process(delta: float) -> void:
 	var now := CombatClock.time
-	var defend_pressed := Input.is_action_just_pressed("defend")
+	var defend_pressed := _defend_pending
+	_defend_pending = false
 	var defend_held := Input.is_action_pressed("defend")
 	if now < _freeze_until:
 		# Hitstop local (parry ou defesa): o corpo congela e os apertos ficam guardados sem expirar.
@@ -98,11 +106,12 @@ func _physics_process(delta: float) -> void:
 		_dodge_buffer = maxf(_dodge_buffer - delta, 0.0)
 	if defend_pressed:
 		_defend_buffer = defense.data.input_buffer
+		defense.note_input(now)
 	else:
 		_defend_buffer = maxf(_defend_buffer - delta, 0.0)
 	if not defend_held and defense.guarding:
 		defense.release(now)
-	if Input.is_action_just_pressed("attack"):
+	if Input.is_action_just_pressed("attack") and now > _attack_ignore_until:
 		combat.press_attack()
 	if state != State.ATTACK:
 		combat.tick(delta)   # relógio do combate fora de um golpe: buffer expira e o reinício da cadeia conta
@@ -128,6 +137,11 @@ func _physics_process(delta: float) -> void:
 	else:
 		velocity.y -= tuning.gravity * delta
 	move_and_slide()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("defend") and not event.is_echo():
+		_defend_pending = true
 
 
 func _process(delta: float) -> void:
@@ -337,6 +351,7 @@ func _try_start_defense() -> bool:
 		_defend_buffer = 0.0
 		combat.consume_buffer()
 		defense.press(now)
+		_attack_ignore_until = now + SAME_INSTANT
 		_enter(State.GUARD, 0.0)
 		return true
 	if defense.guarding and Input.is_action_pressed("defend"):
