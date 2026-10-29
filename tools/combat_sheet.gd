@@ -53,7 +53,7 @@ func _place(pos: Vector3, yaw: float) -> void:
 
 func _follow() -> void:
 	var p := _player.global_position
-	var mid := p.lerp(Vector3(0, 0, 3.5), 0.5)
+	var mid := p + Vector3(0, 0, -0.6)
 	_cam.global_position = mid + Vector3(5.2, 1.4, 0)
 	_cam.look_at(mid + Vector3(0, 1.0, 0), Vector3.UP)
 
@@ -102,7 +102,7 @@ func _seq_full() -> Array:
 	ev[196] = func(): Input.action_release("move_up"); Input.action_press("move_down"); Input.action_press("dodge")
 	ev[199] = func(): Input.action_release("dodge")
 	ev[232] = func(): Input.action_release("move_down"); Input.action_press("move_up")
-	var tiles := await _capture(300, 5, ev)
+	var tiles := await _capture(300, 7, ev)
 	Input.action_release("move_up")
 	return tiles
 

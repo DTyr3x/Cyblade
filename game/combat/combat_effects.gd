@@ -44,6 +44,7 @@ func setup(ctrl: CombatController, vis: HumanoidVisual, det: HitDetector, rig: C
 	controller.strike_started.connect(_on_strike_started)
 	controller.strike_ended.connect(_on_strike_ended)
 	detector.hit.connect(_on_hit)
+	_warm_up()
 
 
 func _build() -> void:
@@ -171,6 +172,19 @@ func _on_hit(info: Dictionary) -> void:
 	if shake > 0.0 and camera_rig != null:
 		camera_rig.add_shake(shake, 0.14)
 		_shake_log.append(shake)
+
+
+## Mostra uma vez cada efeito sob o piso, dentro do campo de visão, para o Godot compilar os
+## pipelines antes do primeiro golpe de verdade (evita o engasgo do primeiro acerto).
+func _warm_up() -> void:
+	var p := visual.global_position + Vector3(0, -0.6, 0)
+	_sparks.global_position = p
+	_sparks.emitting = true
+	_flash_quad.global_position = p
+	_flash_light.global_position = p
+	_flash_t = 0.05
+	_samples.append([p, p + Vector3(0, 0.2, 0), Time.get_ticks_msec() / 1000.0])
+	_samples.append([p + Vector3(0.1, 0, 0), p + Vector3(0.1, 0.2, 0), Time.get_ticks_msec() / 1000.0])
 
 
 ## Quantos tremores de câmera foram pedidos (para testes).
