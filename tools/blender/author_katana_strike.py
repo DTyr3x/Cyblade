@@ -81,6 +81,21 @@ KESA_KEYS = KEYS
 KESA_PARAMS = (FRAMES, ADV_DIST, ADV_START, ADV_END)
 
 
+def pose_in_place(table, params, frame):
+    """Pose de um golpe qualquer no quadro `frame`, no espaço da cápsula (avanço subtraído).
+    `params` = (frames, distância, início, fim do avanço)."""
+    dist, start, end = params[1], params[2], params[3]
+    s = min(max((frame - start) / (end - start), 0.0), 1.0)
+    a = dist * s * s * (3 - 2 * s)
+    out = {}
+    for ch in table:
+        v = interp(ch, frame, table)
+        if ch in ("pelvis_pos", "hand_r", "foot_r", "foot_l"):
+            v = (v[0], v[1] + a, v[2])
+        out[ch] = v
+    return out
+
+
 def kesa_pose_at(frame):
     """Pose do Kesa (APROVADO, não alterar) no quadro `frame`, no espaço da cápsula (avanço já
     subtraído). É o ponto de partida do Kiriage: a primeira pose dele é exatamente esta."""
@@ -96,9 +111,9 @@ def kesa_pose_at(frame):
     return out
 
 
-def interp(channel, f):
+def interp(channel, f, table=None):
     """Catmull-Rom pelas chaves (tuplas ou escalares)."""
-    keys = KEYS[channel]
+    keys = (KEYS if table is None else table)[channel]
     if f <= keys[0][0]:
         return keys[0][1]
     if f >= keys[-1][0]:
@@ -145,6 +160,13 @@ def main():
         sys.path.insert(0, __import__("os").path.dirname(__import__("os").path.abspath(__file__)))
         import katana_kiriage_keys
         KEYS, FRAMES, ADV_DIST, ADV_START, ADV_END = katana_kiriage_keys.build(kesa_pose_at(katana_kiriage_keys.JOIN_FRAME))
+    elif clip == "tsuki":
+        sys.path.insert(0, __import__("os").path.dirname(__import__("os").path.abspath(__file__)))
+        import katana_kiriage_keys
+        import katana_tsuki_keys
+        kk, kf, kd, ks, ke = katana_kiriage_keys.build(kesa_pose_at(katana_kiriage_keys.JOIN_FRAME))
+        k0 = pose_in_place(kk, (kf, kd, ks, ke), katana_tsuki_keys.JOIN_FRAME)
+        KEYS, FRAMES, ADV_DIST, ADV_START, ADV_END = katana_tsuki_keys.build(k0)
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.ops.import_scene.gltf(filepath=glb, bone_heuristic="FORTUNE")
     arm = next(o for o in bpy.data.objects if o.type == "ARMATURE")

@@ -6,8 +6,8 @@ param([string]$Clip = 'all')
 $root = Split-Path -Parent $PSScriptRoot
 $godot = Find-Godot -Console $true
 $blender = 'C:\Program Files\Blender Foundation\Blender 4.5\blender.exe'
-$names = @{ kesa = 'katana_kesa'; kiriage = 'katana_kiriage' }
-foreach ($c in @('kesa', 'kiriage')) {
+$names = @{ kesa = 'katana_kesa'; kiriage = 'katana_kiriage'; tsuki = 'katana_tsuki' }
+foreach ($c in @('kesa', 'kiriage', 'tsuki')) {
     if ($Clip -ne 'all' -and $Clip -ne $c) { continue }
     $json = Join-Path $env:TEMP "cyblade_$($names[$c]).json"
     & $blender -b --python (Join-Path $root 'tools\blender\author_katana_strike.py') -- (Join-Path $root 'assets\characters\ual\UAL1_Standard.glb') $json $c | Select-String 'POLES|SAIDA|Error'
