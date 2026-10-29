@@ -11,8 +11,6 @@ extends SkeletonModifier3D
 const MODEL_FORWARD := Vector3(0, 0, 1)
 
 @export_group("Inclinação")
-## Inclinação extra do tronco à frente na velocidade máxima (graus), somada à do clipe.
-@export var lean_forward_deg := 6.0
 ## Inclinação lateral máxima nas curvas (graus).
 @export var lean_side_deg := 9.0
 ## Ganho da curva: graus de inclinação por (rad/s de giro × fração da velocidade máxima).
@@ -25,23 +23,25 @@ const MODEL_FORWARD := Vector3(0, 0, 1)
 @export var dash_attack_tau := 0.03
 @export var dash_release_tau := 0.09
 
-@export_group("Postura de espadachim")
-## Quanto o braço da katana vai para trás na corrida (graus) e flexão do cotovelo.
-## Direções-alvo no espaço do modelo (+Z frente, +Y cima, -X lado direito do personagem).
-@export var sword_upper_dir := Vector3(-0.25, -0.55, -0.79)
-@export var sword_fore_dir := Vector3(-0.15, -0.05, -0.99)
+@export_group("Postura de arma")
+## Postura da família de arma equipada (direções do braço, peso em repouso, balanço conservado).
+@export var stance: WeaponStance = WeaponStance.katana()
 ## Fração da velocidade máxima em que a postura já está 100% (começa acima de ~40%).
 @export var run_full_ratio := 0.8
 @export var run_start_ratio := 0.35
 @export var posture_tau := 0.07
-## Peso mínimo da postura de espadachim mesmo parado/andando (katana baixa e para trás,
-## em vez de apontada ao chão como uma bengala).
-@export_range(0.0, 1.0) var sword_idle_amount := 0.55
+
+@export_group("Giros")
+## Quanto do desvio de giro (corpo da cápsula x quadril visual) o tronco desfaz: o tronco
+## "lidera" o giro e o quadril acompanha. 0 = nada, 1 = tronco alinhado com a cápsula.
+@export_range(0.0, 1.0) var torso_lead := 0.7
 
 var _run_amount := 0.0
 var _dash_amount := 0.0
 var _lean_fwd := 0.0
 var _lean_side := 0.0
+## Desvio de giro (rad): quanto o quadril visual está atrás da frente da cápsula.
+var _turn_offset := 0.0
 var _prev_forward := Vector3.FORWARD
 var _bones := {}
 ## Poses globais calculadas por nós a partir das poses locais (evita forçar o Skeleton3D a
@@ -57,7 +57,7 @@ func set_motion(delta: float, velocity: Vector3, forward: Vector3, max_speed: fl
 	var run_target := clampf((ratio - run_start_ratio) / (run_full_ratio - run_start_ratio), 0.0, 1.0)
 	_run_amount = lerpf(_run_amount, run_target, MotionMath.smooth_alpha(delta, posture_tau))
 
-	var fwd_target := deg_to_rad(lean_forward_deg) * minf(ratio, 1.0)
+	var fwd_target := deg_to_rad(stance.lean_forward_deg) * minf(ratio, 1.0)
 	_lean_fwd = lerpf(_lean_fwd, fwd_target, MotionMath.smooth_alpha(delta, lean_tau))
 
 	# Giro do corpo (rad/s) a partir da variação da direção de frente.
@@ -68,6 +68,11 @@ func set_motion(delta: float, velocity: Vector3, forward: Vector3, max_speed: fl
 	var side_target := clampf(-yaw_rate * minf(ratio, 1.0) * deg_to_rad(lean_per_turn_rate) * 0.1, -1.0, 1.0)
 	side_target *= deg_to_rad(lean_side_deg)
 	_lean_side = lerpf(_lean_side, side_target, MotionMath.smooth_alpha(delta, lean_tau))
+
+
+## Desvio de giro atual entre a frente da cápsula e o quadril visual (rad, com sinal).
+func set_turn_offset(offset: float) -> void:
+	_turn_offset = offset
 
 
 func run_amount() -> float:
@@ -86,18 +91,31 @@ func _process_modification() -> void:
 	if _bones.is_empty():
 		for n in ["pelvis", "spine_01", "spine_02", "spine_03", "upperarm_r", "lowerarm_r", "hand_r"]:
 			_bones[n] = sk.find_bone(n)
-	# Tronco: o ângulo total é distribuído pela coluna.
+	# Tronco: o ângulo total é distribuído pela coluna; o giro (yaw) é desfeito em parte pelo peito,
+	# que lidera enquanto o quadril (nó visual) acompanha.
 	var share := {"pelvis": 0.25, "spine_01": 0.25, "spine_02": 0.25, "spine_03": 0.25}
+	var twist := {"pelvis": 0.0, "spine_01": 0.2, "spine_02": 0.25, "spine_03": 0.25}
 	for n: String in share:
 		var lean := _lean_fwd + deg_to_rad(dash_lean_deg) * _dash_amount
-		var q := Quaternion(Vector3.RIGHT, lean * share[n]) * Quaternion(MODEL_FORWARD, _lean_side * share[n])
+		var q := Quaternion(Vector3.UP, -_turn_offset * torso_lead * twist[n] / 0.7) * Quaternion(Vector3.RIGHT, lean * share[n]) * Quaternion(MODEL_FORWARD, _lean_side * share[n])
 		_rotate_model_space(sk, _bones[n], q)
 	# Braço da katana para trás: o braço é conduzido para uma direção-alvo (cai rumo à postura
 	# de espadachim conforme `_run_amount`), em vez de somar um desvio ao balanço do clipe.
-	var sword_amount := maxf(maxf(_run_amount, _dash_amount), sword_idle_amount)
-	if sword_amount > 0.001:
-		_aim_bone(sk, _bones["upperarm_r"], _bones["lowerarm_r"], sword_upper_dir.normalized(), sword_amount)
-		_aim_bone(sk, _bones["lowerarm_r"], _bones["hand_r"], sword_fore_dir.normalized(), sword_amount)
+	var arm_w := maxf(maxf(_run_amount, _dash_amount), stance.idle_amount)
+	# Na corrida o braço conserva só uma fração do balanço do clipe (`arm_swing_keep`).
+	var firm := lerpf(1.0, 1.0 - stance.arm_swing_keep, maxf(_run_amount, _dash_amount))
+	arm_w *= firm
+	if arm_w > 0.001:
+		var chest: int = _bones["spine_03"]
+		_aim_bone(sk, _bones["upperarm_r"], _bones["lowerarm_r"], _chest_dir(sk, chest, stance.upper_dir), arm_w)
+		_aim_bone(sk, _bones["lowerarm_r"], _bones["hand_r"], _chest_dir(sk, chest, stance.fore_dir), arm_w)
+
+
+## Direção-alvo (definida para o peito em repouso) levada para a pose atual do peito, então o
+## braço acompanha o tronco em vez de balançar em relação a ele.
+func _chest_dir(sk: Skeleton3D, chest: int, dir: Vector3) -> Vector3:
+	var rest := sk.get_bone_global_rest(chest).basis
+	return (_global(sk, chest).basis * (rest.inverse() * dir.normalized())).normalized()
 
 
 ## Gira o osso (em torno da sua origem) para que o vetor osso->filho aponte para `target_dir`

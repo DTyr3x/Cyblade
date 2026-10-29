@@ -28,6 +28,13 @@ const DASH_BLEND_POINT := 8.25
 const JOG_SPEED := 5.46
 const MAX_JOG_SCALE := 1.25
 
+## Giros: o quadril visual acompanha a frente da cápsula com esta constante de tempo (s) em vez de
+## girar junto, e o tronco lidera (ver HumanoidPoseModifier.torso_lead). Só o visual: a cápsula,
+## a velocidade e a direção do movimento não esperam por isto. Na esquiva o desvio é zerado.
+const TURN_LAG_TAU := 0.05
+## Desvio visual máximo atrás da cápsula (graus), para giros de 180° não torcerem demais.
+const TURN_LAG_MAX_DEG := 60.0
+
 signal skeleton_ready
 
 var skeleton: Skeleton3D
@@ -39,6 +46,8 @@ var katana: Node3D
 var _player: Player
 var _blend_pos := 0.0
 var _run_scale := 1.0
+var _visual_yaw := 0.0
+var _yaw_ready := false
 
 
 func _ready() -> void:
@@ -66,6 +75,7 @@ func update_pose(delta: float, velocity: Vector3, forward: Vector3, max_speed: f
 	if anim_tree == null:
 		return
 	pose_modifier.set_motion(delta, velocity, forward, max_speed, dodging)
+	_update_turn(delta, forward, dodging)
 	var speed := Vector3(velocity.x, 0.0, velocity.z).length()
 	# Posição de mistura e velocidade de reprodução: o ciclo acelera até MAX_JOG_SCALE antes de
 	# passar ao Sprint. Assim os pés acompanham o chão sem misturar ritmos de passada.
@@ -82,6 +92,24 @@ func update_pose(delta: float, velocity: Vector3, forward: Vector3, max_speed: f
 	anim_tree["parameters/Loco/blend_position"] = _blend_pos
 	anim_tree["parameters/RunScale/scale"] = lerpf(scale, 1.0, dash)
 	_run_scale = scale
+
+
+## Quadril visual atrás da frente da cápsula (rad, com sinal): 0 = alinhado.
+func turn_offset() -> float:
+	return rotation.y
+
+
+func _update_turn(delta: float, forward: Vector3, dodging: bool) -> void:
+	var body_yaw := atan2(-forward.x, -forward.z)
+	if not _yaw_ready or dodging:
+		_visual_yaw = body_yaw
+		_yaw_ready = true
+	else:
+		_visual_yaw = lerp_angle(_visual_yaw, body_yaw, MotionMath.smooth_alpha(delta, TURN_LAG_TAU))
+	var lag := clampf(angle_difference(_visual_yaw, body_yaw), -deg_to_rad(TURN_LAG_MAX_DEG), deg_to_rad(TURN_LAG_MAX_DEG))
+	_visual_yaw = body_yaw - lag
+	rotation.y = -lag
+	pose_modifier.set_turn_offset(rotation.y)
 
 
 func blend_position() -> float:
