@@ -23,6 +23,7 @@ Um ninja com katana enfrenta robôs numa megacidade industrial, com qualidade vi
 | 1 | Câmera e movimentação | Concluído (aprovado pelo PO; PR #1 integrado) |
 | H1 | Locomoção humanoide (esqueleto, AnimationTree, esquiva integrada), H1.1 refinamento | Aprovado pelo PO e integrado à `main` |
 | H2 | Combate de katana (3 golpes, alvo de treino, acerto, efeitos) | Em avaliação pelo PO (PR aberto) |
+| H2.1 | Pesquisa Phantom Blade Zero e golpe 1 autoral (Kesa avançado, Blender + IK) | Em avaliação pelo PO (PR #3) |
 | 2 | Direção gráfica | Planejado |
 | 3 | Combate | Planejado |
 | 4 | Forja de Combos | Planejado |

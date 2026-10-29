@@ -30,7 +30,7 @@ func _run() -> void:
 	_cam.make_current()
 	_main.get_node("CameraRig").set_process(false)
 	_save(await _seq_full(), "h2_01_corrida_tres_golpes_esquiva_corrida.png")
-	_save(await _seq_single(0), "h2_02_golpe1_corte_diagonal.png")
+	_save(await _seq_single(0), "h2_02_golpe1_kesa_avancado.png")
 	_save(await _seq_single(1), "h2_03_golpe2_corte_reverso.png")
 	_save(await _seq_single(2), "h2_04_golpe3_golpe_final.png")
 	print("[combat_sheet] ok")

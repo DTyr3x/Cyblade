@@ -23,7 +23,7 @@ Itens registrados para acompanhamento. Nenhum bloqueia o Pull Request do Marco 1
 
 | # | Pendência | Impacto | Onde tratar |
 |---|---|---|---|
-| 10 | **Um único clipe de espada no pacote.** Os 3 golpes derivam de `Sword_Attack` (recorte, espelhamento, ritmo e avanço diferentes). Falta variedade corporal real (estocada, giro, golpe descendente) | Alta para a sensação de combate | H2.1: clipes autorais no Blender (4.5.10 já instalado) ou pacote adicional CC0/licenciado |
+| 10 | **Um único clipe de espada no pacote** (H2.1: golpe 1 já é autoral; golpes 2 e 3 ainda derivados).** Os 3 golpes derivam de `Sword_Attack` (recorte, espelhamento, ritmo e avanço diferentes). Falta variedade corporal real (estocada, giro, golpe descendente) | Alta para a sensação de combate | H2.1: clipes autorais no Blender (4.5.10 já instalado) ou pacote adicional CC0/licenciado |
 | 11 | **Pés escorregam no avanço dos golpes:** o clipe é no lugar e o avanço vem da cápsula (0,9 m nos golpes 1 e 2, 1,5 m no final) | Média | H2.1: sincronizar o avanço com os apoios ou usar clipes com deslocamento (root motion) |
 | 12 | **Pico de quadro de ~26 ms** (1 por execução em 2 de 4 execuções do playtest de combate) | Baixa | Perfilar com o profiler do Godot; suspeita de primeira compilação de pipeline |
 | 13 | **Katana procedural presa ao punho** sem ajuste fino de empunhadura por golpe; o clipe foi feito para outra arma | Média | H2.1 |

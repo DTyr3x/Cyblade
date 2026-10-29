@@ -47,3 +47,13 @@ Descritas em `docs/h1-locomocao.md` (ajustes procedurais de postura em código, 
 ## Efeitos visuais (H2)
 
 Rastro, faíscas e clarão são feitos em código (malha dinâmica, `CPUParticles3D`, textura de gradiente gerada em código). Nenhum asset externo.
+
+## Golpe autoral "Kesa avançado" (H2.1)
+
+| Campo | Valor |
+|---|---|
+| Arquivo | `assets/animations/katana/katana_kesa.res` (Animation do Godot, 34 quadros a 60 Hz) |
+| Origem | **Original do CYBLADE.** Poses-chave em código (`tools/blender/author_katana_strike.py`), IK resolvido no Blender 4.5.10 sobre o esqueleto do UAL (CC0), convertido por `tools/blender_pose_to_godot.gd`. Regerar: `tools/build_katana_strike.ps1` |
+| Base de terceiros usada | Só o esqueleto do UAL e a pose dos dedos do clipe `Sword_Idle` (CC0) |
+| Referências | Princípios de kenjutsu (kesa-giri, okuri-ashi). Nada copiado de Phantom Blade Zero ou Dinghai |
+| Licença | Do projeto |
