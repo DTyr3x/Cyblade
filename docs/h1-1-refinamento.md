@@ -1,7 +1,7 @@
 # H1.1: refinamento da locomoção
 
-Status: **implementado e testado por script. Não aprovado: depende do playtest do PO.**
-Branch `feat/h1-locomocao-humanoide` (PR #2). Sem merge. H2 não iniciado.
+Status: **APROVADO PELO PO (funcional e visual) após playtest humano.** Ver "Aprovação do PO".
+Branch `feat/h1-locomocao-humanoide` (PR #2). Aguardando autorização do PO para o merge. H2 não iniciado.
 
 ## O que mudou
 
@@ -57,3 +57,26 @@ Branch `feat/h1-locomocao-humanoide` (PR #2). Sem merge. H2 não iniciado.
 11. Troque os 3 enquadramentos de câmera várias vezes (1, 2, 3). Notou travada?
 12. Jogue por 10 minutos seguidos: alguma janela travou ou algum erro apareceu?
 13. Entre H1 e H1.1, qual corrida você prefere? Se for a anterior, diga o que mudou para pior.
+
+## Aprovação do PO
+
+O PO concluiu o playtest humano do H1.1: **6 critérios aprovados, 0 reprovados.**
+
+| Critério | Resultado |
+|---|---|
+| Balanço do braço da katana na corrida | Aprovado |
+| Posição do cotovelo e da espada | Aprovado |
+| Transição do repouso para a corrida | Aprovado |
+| Giros de 45°, 90° e 180° | Aprovado |
+| Fluidez da esquiva | Aprovado |
+| Estabilidade durante o playtest humano | Aprovado |
+
+Decisão: H1.1 aprovado funcional e visualmente. **Sem novos ajustes na locomoção aprovada sem necessidade comprovada.** As limitações listadas acima (pose do braço mais esticada, katana para baixo na partida) foram vistas pelo PO e não reprovadas.
+
+Isto também fecha a pendência 9 (travamento em janela) para efeito de aceite: o playtest humano não travou. O vigia do playtest permanece.
+
+### Regressão pós-aprovação
+
+- 152 verificações, 0 falhas, tolerâncias inalteradas (o diff dos testes contra a `main` tem só linhas acrescentadas, nenhuma removida).
+- Sem arquivos indevidos versionados (nada de `.godot`, downloads, zips ou logs); PR sem conflitos e mesclável.
+- Merge e H2 aguardam nova autorização do PO.
