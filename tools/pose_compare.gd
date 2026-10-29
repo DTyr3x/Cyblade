@@ -4,8 +4,12 @@ extends SceneTree
 ## Linha 2 e 4: Kiriage nos quadros 0 (= pose do Kesa no 17), 2, 4, 6 e 8.
 ##   godot --path . --rendering-driver vulkan --windowed --resolution 1280x720 -s res://tools/pose_compare.gd -- --out=docs/h2-2/estudo
 const TILE := Vector2i(300, 380)
-const KESA_FRAMES := [13, 15, 17, 19, 21]
-const KIRIAGE_FRAMES := [0, 2, 4, 6, 8]
+var _a_clip := "kesa"
+var _b_clip := "kiriage"
+var _a_frames := [13, 15, 17, 19, 21]
+var _b_frames := [0, 2, 4, 6, 8]
+var _name := "transicao_kesa_kiriage.png"
+var _extra := {}
 
 
 func _initialize() -> void:
@@ -13,6 +17,16 @@ func _initialize() -> void:
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--out="):
 			out = "res://" + a.substr(6)
+		elif a.begins_with("--a="):
+			_a_clip = a.substr(4)
+		elif a.begins_with("--b="):
+			_b_clip = a.substr(4)
+		elif a.begins_with("--af="):
+			_a_frames = Array(a.substr(5).split(",")).map(func(s): return int(s))
+		elif a.begins_with("--bf="):
+			_b_frames = Array(a.substr(5).split(",")).map(func(s): return int(s))
+		elif a.begins_with("--name="):
+			_name = a.substr(7)
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(out))
 	_run(out)
 
@@ -32,8 +46,9 @@ func _run(out: String) -> void:
 	root.add_child(m)
 	var ap := m.find_child("AnimationPlayer", true, false) as AnimationPlayer
 	var lib := ap.get_animation_library("")
-	lib.add_animation("kesa", load("res://assets/animations/katana/katana_kesa.res"))
-	lib.add_animation("kiriage", load("res://assets/animations/katana/katana_kiriage.res"))
+	for n: String in [_a_clip, _b_clip]:
+		if not lib.has_animation(n):
+			lib.add_animation(n, load("res://assets/animations/katana/katana_%s.res" % n))
 	var sk := m.find_child("Skeleton3D", true, false) as Skeleton3D
 	var att := BoneAttachment3D.new()
 	att.bone_name = "hand_r"
@@ -48,8 +63,8 @@ func _run(out: String) -> void:
 	cam.make_current()
 	var sheet := Image.create(5 * TILE.x, 4 * TILE.y, false, Image.FORMAT_RGB8)
 	var rows := [
-		["kesa", KESA_FRAMES, Vector3(2.6, 1.4, 4.6)], ["kiriage", KIRIAGE_FRAMES, Vector3(2.6, 1.4, 4.6)],
-		["kesa", KESA_FRAMES, Vector3(6.0, 1.1, 0.0)], ["kiriage", KIRIAGE_FRAMES, Vector3(6.0, 1.1, 0.0)],
+		[_a_clip, _a_frames, Vector3(2.6, 1.4, 4.6)], [_b_clip, _b_frames, Vector3(2.6, 1.4, 4.6)],
+		[_a_clip, _a_frames, Vector3(6.0, 1.1, 0.0)], [_b_clip, _b_frames, Vector3(6.0, 1.1, 0.0)],
 	]
 	for r in rows.size():
 		var clip: String = rows[r][0]
@@ -65,6 +80,6 @@ func _run(out: String) -> void:
 			var crop := img.get_region(Rect2i(img.get_width() / 2 - TILE.x / 2, img.get_height() / 2 - TILE.y / 2 - 20, TILE.x, TILE.y))
 			crop.convert(Image.FORMAT_RGB8)
 			sheet.blit_rect(crop, Rect2i(0, 0, TILE.x, TILE.y), Vector2i(i * TILE.x, r * TILE.y))
-	sheet.save_png(ProjectSettings.globalize_path(out).path_join("transicao_kesa_kiriage.png"))
+	sheet.save_png(ProjectSettings.globalize_path(out).path_join(_name))
 	print("[pose_compare] ok")
 	quit()

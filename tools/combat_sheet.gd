@@ -10,6 +10,7 @@ var _out := "res://docs/h2/capturas"
 var _lookat := Vector3.ZERO
 var _view := "lado"
 var _h22 := false
+var _h23 := false
 
 
 func _initialize() -> void:
@@ -18,6 +19,8 @@ func _initialize() -> void:
 			_out = "res://" + a.substr(6)
 		if a == "--h22":
 			_h22 = true
+		if a == "--h23":
+			_h23 = true
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(_out))
 	_run()
 
@@ -33,6 +36,11 @@ func _run() -> void:
 	root.add_child(_cam)
 	_cam.make_current()
 	_main.get_node("CameraRig").set_process(false)
+	if _h23:
+		await _run_h23()
+		print("[combat_sheet] ok")
+		quit()
+		return
 	if _h22:
 		await _run_h22()
 		print("[combat_sheet] ok")
@@ -202,6 +210,101 @@ func _seq_game_camera() -> Array:
 			var img := root.get_viewport().get_texture().get_image()
 			var p := rig.camera.unproject_position(_player.global_position + Vector3(0, 0.9, 0))
 			p *= float(img.get_width()) / root.get_visible_rect().size.x   # a imagem pode ter outra escala que o viewport
+			var crop := img.get_region(Rect2i(int(p.x) - 135, int(p.y) - 100, 270, 200))
+			crop.resize(540, 400, Image.INTERPOLATE_LANCZOS)
+			tiles.append({"img": crop})
+	rig.set_process(false)
+	_cam.make_current()
+	return tiles
+
+
+# --- H2.3: Tsuki de passo duplo -------------------------------------------------------------
+
+func _run_h23() -> void:
+	var fill := OmniLight3D.new()
+	fill.light_energy = 4.0
+	fill.omni_range = 16.0
+	_view = "frente"
+	_cam.add_child(fill)
+	_save(await _seq_tsuki_isolado(Vector3(-25, 0.05, 25), false), "h23_01_tsuki_isolado_frente.png")
+	fill.queue_free()
+	_view = "lado"
+	_save(await _seq_tsuki_isolado(Vector3(-25, 0.05, 25), false), "h23_02_tsuki_isolado_lado.png")
+	_save(await _seq_tsuki_isolado(Vector3(0, 0.05, 6.4), true), "h23_03_tsuki_isolado_boneco.png")
+	var fill2 := OmniLight3D.new()
+	fill2.light_energy = 4.0
+	fill2.omni_range = 16.0
+	_view = "frente"
+	_cam.add_child(fill2)
+	_save(await _seq_chain3(Vector3(-25, 0.05, 25), false), "h23_04_sequencia_tres_golpes_frente.png")
+	fill2.queue_free()
+	_view = "lado"
+	_save(await _seq_chain3(Vector3(-25, 0.05, 25), false), "h23_05_sequencia_tres_golpes_lado.png")
+	_save(await _seq_chain3(Vector3(0, 0.05, 6.4), true), "h23_06_sequencia_tres_golpes_boneco.png")
+	_save(await _seq_full(), "h23_07_corrida_tres_golpes_esquiva_corrida.png")
+	_save(await _seq_game_camera3(), "h23_08_camera_de_jogo.png")
+
+
+## Kesa e Kiriage sem captura; depois captura só o Tsuki, apertado depois do Kiriage terminar.
+func _seq_tsuki_isolado(start: Vector3, with_dummy: bool) -> Array:
+	await _reset_dummy_and_player(start)
+	if with_dummy:
+		_player.global_position = Vector3(0, 0.05, 6.0)
+	Input.action_press("attack")
+	await physics_frame
+	Input.action_release("attack")
+	await _ticks(3)
+	Input.action_press("attack")
+	await physics_frame
+	Input.action_release("attack")
+	await _ticks(60)   # Kesa + Kiriage terminam (0,28 + 0,50 s)
+	var ev := {}
+	ev[0] = func(): Input.action_press("attack")
+	ev[2] = func(): Input.action_release("attack")
+	return await _capture(60, 2, ev)
+
+
+## Kesa → Kiriage → Tsuki encadeados, depois corrida.
+func _seq_chain3(start: Vector3, with_dummy: bool) -> Array:
+	await _reset_dummy_and_player(start)
+	if with_dummy:
+		_player.global_position = Vector3(0, 0.05, 6.4)
+	var ev := {}
+	ev[0] = func(): Input.action_press("attack")
+	ev[2] = func(): Input.action_release("attack")
+	ev[4] = func(): Input.action_press("attack")
+	ev[6] = func(): Input.action_release("attack")
+	ev[40] = func(): Input.action_press("attack")
+	ev[42] = func(): Input.action_release("attack")
+	ev[130] = func(): Input.action_press("move_up")
+	return await _capture(160, 3, ev)
+
+
+func _seq_game_camera3() -> Array:
+	var rig := _main.get_node("CameraRig") as CameraRig
+	rig.set_process(true)
+	rig.camera.make_current()
+	rig.set_preset(0, true)
+	await _reset_dummy_and_player(Vector3(0, 0.05, 6.8))
+	rig.snap()
+	var tiles: Array = []
+	var ev := {}
+	ev[0] = func(): Input.action_press("attack")
+	ev[2] = func(): Input.action_release("attack")
+	ev[4] = func(): Input.action_press("attack")
+	ev[6] = func(): Input.action_release("attack")
+	ev[40] = func(): Input.action_press("attack")
+	ev[42] = func(): Input.action_release("attack")
+	for t in 140:
+		await physics_frame
+		if ev.has(t):
+			(ev[t] as Callable).call()
+		if t % 4 == 0:
+			await process_frame
+			await RenderingServer.frame_post_draw
+			var img := root.get_viewport().get_texture().get_image()
+			var p := rig.camera.unproject_position(_player.global_position + Vector3(0, 0.9, 0))
+			p *= float(img.get_width()) / root.get_visible_rect().size.x
 			var crop := img.get_region(Rect2i(int(p.x) - 135, int(p.y) - 100, 270, 200))
 			crop.resize(540, 400, Image.INTERPOLATE_LANCZOS)
 			tiles.append({"img": crop})
