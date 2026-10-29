@@ -2,7 +2,7 @@
 
 > Nome provisório. Action roguelite 3D cyberpunk para PC Windows/Steam, single-player e offline.
 
-**Estado:** Marco 1 (câmera e movimentação, com esquiva fluida) aprovado pelo PO e integrado à `main`. Em avaliação pelo PO: **H1, locomoção humanoide** (`docs/h1-locomocao.md`): humanoide com esqueleto e `AnimationTree`, postura de espadachim e esquiva integrada. Ainda não há combate. Pendências técnicas: `docs/pendencias-tecnicas.md`.
+**Estado:** Marco 1 (câmera e movimentação, com esquiva fluida) aprovado pelo PO e integrado à `main`. H1/H1.1 (locomoção humanoide) aprovados e integrados. Em avaliação pelo PO: **H2, combate de katana** (`docs/h2-combate-katana.md`): cadeia de 3 golpes, boneco de treino, acerto, hitstop e efeitos. Pendências técnicas: `docs/pendencias-tecnicas.md`.
 
 ## Visão
 
@@ -21,7 +21,8 @@ Um ninja com katana enfrenta robôs numa megacidade industrial, com qualidade vi
 |---|---|---|
 | 0 | Fundação: projeto, estrutura, Git | Concluído |
 | 1 | Câmera e movimentação | Concluído (aprovado pelo PO; PR #1 integrado) |
-| H1 | Locomoção humanoide (esqueleto, AnimationTree, esquiva integrada) | Em avaliação pelo PO (PR aberto) |
+| H1 | Locomoção humanoide (esqueleto, AnimationTree, esquiva integrada), H1.1 refinamento | Aprovado pelo PO e integrado à `main` |
+| H2 | Combate de katana (3 golpes, alvo de treino, acerto, efeitos) | Em avaliação pelo PO (PR aberto) |
 | 2 | Direção gráfica | Planejado |
 | 3 | Combate | Planejado |
 | 4 | Forja de Combos | Planejado |

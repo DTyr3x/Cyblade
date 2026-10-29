@@ -18,3 +18,14 @@ Itens registrados para acompanhamento. Nenhum bloqueia o Pull Request do Marco 1
 | 7 | **Custo do pipeline de modificadores do esqueleto:** ~1,4 ms por personagem (medido; o script do modificador custa ~36 µs). Não escala para muitos inimigos | Média | H2: modificadores só no jogador; inimigos só com `AnimationTree` |
 | 8 | **Sem clipes de partida, parada e giro** (não existem no pacote Standard); deslize residual dos pés (0,57 m/s médio) | Média: é o ponto principal da "naturalidade" | H2: clipes autorais no Blender ou pacote com transições |
 | 9 | **Intermitência no playtest em janela: não reproduzida.** No H1, 2 de 5 execuções travaram ao trocar de enquadramento. No H1.1: 17 execuções seguidas sem travar (13 isoladas, 3 com testes headless rodando em paralelo, 1 com o vigia novo). Hipótese mais provável: concorrência com outras instâncias do Godot durante a sessão do H1 (não confirmada). O playtest agora tem um vigia (20 s sem quadros: registra trecho e quadro e encerra), então um travamento futuro gera diagnóstico. Dados em `docs/h1-1/` | Baixa | Reabrir se o vigia disparar |
+
+## Pendências abertas pelo H2 (combate de katana)
+
+| # | Pendência | Impacto | Onde tratar |
+|---|---|---|---|
+| 10 | **Um único clipe de espada no pacote.** Os 3 golpes derivam de `Sword_Attack` (recorte, espelhamento, ritmo e avanço diferentes). Falta variedade corporal real (estocada, giro, golpe descendente) | Alta para a sensação de combate | H2.1: clipes autorais no Blender (4.5.10 já instalado) ou pacote adicional CC0/licenciado |
+| 11 | **Pés escorregam no avanço dos golpes:** o clipe é no lugar e o avanço vem da cápsula (0,9 m nos golpes 1 e 2, 1,5 m no final) | Média | H2.1: sincronizar o avanço com os apoios ou usar clipes com deslocamento (root motion) |
+| 12 | **Pico de quadro de ~26 ms** (1 por execução em 2 de 4 execuções do playtest de combate) | Baixa | Perfilar com o profiler do Godot; suspeita de primeira compilação de pipeline |
+| 13 | **Katana procedural presa ao punho** sem ajuste fino de empunhadura por golpe; o clipe foi feito para outra arma | Média | H2.1 |
+| 14 | **Sons e efeitos provisórios** (sintetizados / primitivos) | Baixa | Marco de som e VFX |
+| 15 | **Alvo único sem IA e sem fim de vida:** só registra dano; sem morte | Esperado | Marco de inimigos |

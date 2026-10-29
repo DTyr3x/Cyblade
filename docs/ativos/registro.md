@@ -27,3 +27,23 @@ Descritas em `docs/h1-locomocao.md` (ajustes procedurais de postura em código, 
 |---|---|---|
 | Godot | 4.7.2 stable | Engine (MIT) |
 | Blender | 4.5.10 LTS (winget `BlenderFoundation.Blender.LTS.4.5`) | Inspeção e ajustes de animação (GPL; nada do Blender é distribuído) |
+
+## Clipes de golpe da katana (H2, derivados de `Sword_Attack`)
+
+| Campo | Valor |
+|---|---|
+| Origem | **Nenhum ativo novo.** Os três golpes são derivados do clipe `Sword_Attack` (1,53 s) do mesmo pacote UAL (CC0) acima |
+| Como | `game/combat/katana_clips.gd`: recorte de trecho, amostragem a 60 Hz e, no golpe 2, espelhamento esquerda/direita (troca de ossos `_l`/`_r` e quaternion `(x, -y, -z, w)`). Gerado em memória na carga, nenhum arquivo de animação novo no repositório |
+| Licença / redistribuição | CC0 (a mesma do pacote); obras derivadas permitidas |
+| Limite conhecido | O pacote Standard tem **um único** clipe de espada: os três golpes compartilham a mesma base de movimento (diferem por trecho, espelhamento, ritmo e avanço). Clipes autorais distintos ficam como pendência (`docs/pendencias-tecnicas.md`, item 10) |
+
+## Sons provisórios (H2)
+
+| Campo | Valor |
+|---|---|
+| Origem | **Sintetizados em código** (`game/combat/generated_sounds.gd`): ruído filtrado para o corte, estalo + toque metálico para o contato |
+| Licença | Originais do projeto; sem arquivo de áudio de terceiros, nada a verificar. Provisórios: devem ser trocados por áudio de verdade no marco de som |
+
+## Efeitos visuais (H2)
+
+Rastro, faíscas e clarão são feitos em código (malha dinâmica, `CPUParticles3D`, textura de gradiente gerada em código). Nenhum asset externo.
