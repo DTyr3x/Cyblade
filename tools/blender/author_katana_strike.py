@@ -160,6 +160,10 @@ def main():
         sys.path.insert(0, __import__("os").path.dirname(__import__("os").path.abspath(__file__)))
         import katana_kiriage_keys
         KEYS, FRAMES, ADV_DIST, ADV_START, ADV_END = katana_kiriage_keys.build(kesa_pose_at(katana_kiriage_keys.JOIN_FRAME))
+    elif clip == "guarda":
+        sys.path.insert(0, __import__("os").path.dirname(__import__("os").path.abspath(__file__)))
+        import katana_guard_keys
+        KEYS, FRAMES, ADV_DIST, ADV_START, ADV_END = katana_guard_keys.build()
     elif clip == "tsuki":
         sys.path.insert(0, __import__("os").path.dirname(__import__("os").path.abspath(__file__)))
         import katana_kiriage_keys
