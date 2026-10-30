@@ -84,3 +84,10 @@ Rastro, faíscas e clarão são feitos em código (malha dinâmica, `CPUParticle
 | `assets/animations/katana/katana_guarda.res` | **Original do CYBLADE.** Pose estática por IK no Blender 4.5.10 (`tools/blender/katana_guard_keys.py`) sobre o esqueleto do UAL (CC0) | Do projeto |
 | Sons de parry, defesa, golpe recebido e sinal do Instrutor | **Sintetizados em código** (`game/combat/generated_sounds.gd`), provisórios | Do projeto |
 | Instrutor de treino | Corpo procedural em código (`game/combat/training_instructor.gd`) | Do projeto |
+
+## Deflexão do parry e contra-corte (C1.1)
+
+| Item | Origem | Licença |
+|---|---|---|
+| `assets/animations/katana/katana_deflexao.res` (0,30 s) | **Original do CYBLADE.** Poses por IK no Blender 4.5.10 (`tools/blender/katana_deflect_keys.py`), parte da pose de guarda, sobre o esqueleto do UAL (CC0) | Do projeto |
+| `assets/animations/katana/katana_contra.res` (0,37 s) | **Original do CYBLADE.** Parte da pose de saída da deflexão (`tools/blender/katana_counter_keys.py`). Regerar os dois: `tools/build_katana_strike.ps1` | Do projeto |

@@ -41,3 +41,11 @@ Itens registrados para acompanhamento. Nenhum bloqueia o Pull Request do Marco 1
 | 20 | **Sem animação de deflexão no parry** (pose de guarda estática) | Média | C1.x: clipe autoral curto de deflexão |
 | 21 | **Desempenho do C1 medido com o Phantom Blade Zero aberto** | Baixa | Repetir com o jogo fechado |
 | 22 | **Postura, Energia Neural e contra-ataque são só contadores** | Esperado | C2 / C3 |
+
+## Pendências abertas pelo C1.1
+
+| # | Pendência | Impacto | Onde tratar |
+|---|---|---|---|
+| 23 | **Deflexão e contra-corte por IK, sem captura de movimento** (ombros e punhos pouco sutis) e **um só contra-corte**, sem variação pela direção do golpe inimigo | Média | Refino depois do playtest do PO |
+| 24 | **Abertura sinalizada só pelo visor branco do Instrutor** (pequeno na câmera alta) e pelo HUD | Média | Depois do playtest: avaliar indicador maior |
+| 25 | **Segunda execução seguida do playtest em janela às vezes termina sem gravar resultados** (3 casos, nenhum estouro de tempo; repetida sozinha, funciona) | Baixa | Investigar com o vigia do playtest; ver pendência 17 |
