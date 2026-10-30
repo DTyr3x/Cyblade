@@ -160,6 +160,19 @@ def main():
         sys.path.insert(0, __import__("os").path.dirname(__import__("os").path.abspath(__file__)))
         import katana_kiriage_keys
         KEYS, FRAMES, ADV_DIST, ADV_START, ADV_END = katana_kiriage_keys.build(kesa_pose_at(katana_kiriage_keys.JOIN_FRAME))
+    elif clip == "deflexao" or clip == "contra":
+        sys.path.insert(0, __import__("os").path.dirname(__import__("os").path.abspath(__file__)))
+        import katana_guard_keys
+        import katana_deflect_keys
+        gk, _gf, _gd, _gs, _ge = katana_guard_keys.build()
+        guard = {ch: v[0][1] for ch, v in gk.items()}
+        dk, df, dd, ds, de = katana_deflect_keys.build(guard)
+        if clip == "deflexao":
+            KEYS, FRAMES, ADV_DIST, ADV_START, ADV_END = dk, df, dd, ds, de
+        else:
+            import katana_counter_keys
+            k0 = pose_in_place(dk, (df, dd, ds, de), df - 1)
+            KEYS, FRAMES, ADV_DIST, ADV_START, ADV_END = katana_counter_keys.build(k0)
     elif clip == "guarda":
         sys.path.insert(0, __import__("os").path.dirname(__import__("os").path.abspath(__file__)))
         import katana_guard_keys
