@@ -60,5 +60,36 @@ func _run() -> void:
 		print("  %s  %s: aperto %+.3f s do contato (pedido %+.3f), resultado %s" % ["PASS" if ok else "FAIL", c[3], pressed_at - tc, c[0], ["PARRY", "DEFESA", "GOLPE"][got] if got >= 0 else str(got)])
 		for i in 60:
 			await process_frame
+	# Contra-ataque de oportunidade: J a +0,20 s do contato (dentro da janela) = contra-corte; J a +0,95 s
+	# (fora da janela de 0,80 s) = cadeia normal. Mesmo resultado em qualquer FPS de render.
+	for spec: Array in [[0.20, true, "contra-ataque dentro da janela"], [0.95, false, "J fora da janela"]]:
+		_player.global_position = _ins.global_position + Vector3(0, 0.05, 1.7)
+		_player.velocity = Vector3.ZERO
+		_player.rotation.y = 0.0
+		for i in 40:
+			await process_frame
+		while not (_ins.phase == TrainingInstructor.Phase.WINDUP and _ins.next_contact_time > 0.0):
+			await process_frame
+		var tc2 := _ins.next_contact_time
+		while CombatClock.time < tc2 - 0.07:
+			await process_frame
+		_key(KEY_K, true)
+		await process_frame
+		_key(KEY_K, false)
+		while CombatClock.time < tc2 + float(spec[0]):
+			await process_frame
+		var sw := _player.combat.swing_id
+		_key(KEY_J, true)
+		await process_frame
+		_key(KEY_J, false)
+		for i in 12:
+			await process_frame
+		var was_counter: bool = _player.combat.swing_id > sw and _player.combat.is_counter
+		var ok2: bool = was_counter == bool(spec[1])
+		if not ok2:
+			_fails += 1
+		print("  %s  %s (J a +%.2f s): %s" % ["PASS" if ok2 else "FAIL", spec[2], float(spec[0]), "contra-corte" if was_counter else "cadeia normal"])
+		for i in 60:
+			await process_frame
 	print("== parry por FPS: %d falha(s) ==" % _fails)
 	quit(1 if _fails > 0 else 0)

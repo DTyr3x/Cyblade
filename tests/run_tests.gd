@@ -48,6 +48,8 @@ func _run() -> void:
 	await _test_h23()
 	_test_c1_logic()
 	await _test_c1_play()
+	_test_c11_logic()
+	await _test_c11_play()
 	print("== resultado: %d ok, %d falha(s) ==" % [_passed, _failed])
 	quit(1 if _failed > 0 else 0)
 
@@ -2063,4 +2065,231 @@ func _test_c1_play() -> void:
 	await _seconds(0.5)
 	# Golpes aprovados intactos.
 	_check(FileAccess.get_sha256("res://assets/animations/katana/katana_kesa.res") == KESA_APPROVED_SHA256 and FileAccess.get_sha256("res://assets/animations/katana/katana_kiriage.res") == KIRIAGE_APPROVED_SHA256, "Kesa e Kiriage aprovados intactos depois do C1")
+	await _reset_player(Vector3(-25, 0.05, 25), -PI / 2.0)
+
+
+# --- C1.1: deflexão do parry e contra-ataque de oportunidade --------------------------------
+
+const TSUKI_APPROVED_SHA256 := "c47a9da3015f651ed42c80420deb5f3aa9ca6bc8f52535343a25ff7ed8082a2e"
+const GUARD_SHA256 := "6f25d110dd27c6bdfca30ea0ef8301efce4df8d248248e19ab8aaaa60621316d"
+
+
+## Faz um parry perfeito (aperto 0,07 s antes do contato) e devolve o instante do contato.
+func _c11_parry(ins: TrainingInstructor, hold_after := false) -> float:
+	var tc := await _c1_next_contact(ins)
+	await _press_defend_at(tc - 0.07)
+	if not hold_after:
+		_key(KEY_K, false)
+	await _wait_until(func(): return _player.defense.last_result >= 0 and float(ins.results.back().get("time", 0.0)) >= tc - 0.001, 1.0)
+	return tc
+
+
+func _test_c11_logic() -> void:
+	print("-- C1.1: oportunidade (lógica pura)")
+	var d := DefenseController.new(DefenseData.new())
+	var src := Node3D.new()
+	_check(absf(d.data.counter_window - 0.80) < 0.0001 and d.data.counter_charges == 1 and d.data.counter_requires_perfect, "janela de oportunidade 0,80 s, 1 carga, só parry perfeito (separada do desequilíbrio do Instrutor)")
+	_check(not d.grant_opportunity(10.0, DefenseController.Result.BLOCK, src) and not d.grant_opportunity(10.0, DefenseController.Result.HIT, src), "defesa normal e golpe recebido não abrem oportunidade")
+	_check(not d.opportunity_open(10.0), "sem parry não há oportunidade")
+	_check(d.grant_opportunity(10.0, DefenseController.Result.PERFECT, src) and d.opportunity_open(10.0) and d.opportunity_open(10.79), "parry perfeito abre a oportunidade por 0,80 s")
+	_check(absf(d.opportunity_left(10.5) - 0.30) < 0.001, "tempo restante da oportunidade", "%.2f s" % d.opportunity_left(10.5))
+	_check(d.consume_opportunity(10.2) and not d.opportunity_open(10.21) and not d.consume_opportunity(10.3), "consumo único: depois de usada a oportunidade fecha")
+	d.grant_opportunity(20.0, DefenseController.Result.PERFECT, src)
+	d.update_opportunity(20.85)
+	_check(not d.opportunity_open(20.85) and d.opportunities_expired == 1 and not d.consume_opportunity(20.86), "oportunidade expira depois de 0,80 s sem uso")
+	d.grant_opportunity(30.0, DefenseController.Result.PERFECT, src)
+	_check(not d.opportunity_open(30.81), "fora da janela não há contra-ataque")
+	var d2 := DefenseController.new(DefenseData.new())
+	d2.press(10.0)
+	var r := d2.resolve(10.05, 20.0)
+	_check(r["result"] == DefenseController.Result.PERFECT and d2.data.perfect_window == 0.14, "C1.0 intacto: janela perfeita de 0,14 s")
+	src.free()
+
+
+func _test_c11_play() -> void:
+	print("-- C1.1: deflexão e contra-ataque no jogo")
+	var c := _player.combat
+	var df := _player.defense
+	var vis: HumanoidVisual = _player.visual
+	var fx := _main.get("defense_effects") as DefenseEffects
+	var cruise := _player.tuning.max_speed
+	var counter := c.combo.counter_strike
+
+	# Integridade dos clipes aprovados e dos dados do C1.0.
+	_check(FileAccess.get_sha256("res://assets/animations/katana/katana_kesa.res") == KESA_APPROVED_SHA256 and FileAccess.get_sha256("res://assets/animations/katana/katana_kiriage.res") == KIRIAGE_APPROVED_SHA256 and FileAccess.get_sha256("res://assets/animations/katana/katana_tsuki.res") == TSUKI_APPROVED_SHA256, "Kesa, Kiriage e Tsuki: clipes idênticos aos aprovados (SHA-256)")
+	_check(FileAccess.get_sha256("res://assets/animations/katana/katana_guarda.res") == GUARD_SHA256, "pose de guarda do C1.0 intacta")
+	_check(counter != null and String(counter.id) == "contra_corte" and counter.clip_resource != null and counter.authored_grip, "contra-corte: clipe autoral próprio, fora da cadeia")
+	_check(c.combo.strikes.size() == 3, "a cadeia continua com 3 golpes")
+	_check(vis.anim_player.has_animation(&"Katana_Deflexao") and vis.anim_player.has_animation(&"Katana_3"), "clipes de deflexão e de contra-corte carregados")
+
+	# 1. Parry perfeito: deflexão sincronizada ao contato (som, faíscas e animação no mesmo instante).
+	var ins := await _c1_setup()
+	_player.vitals.health = _player.vitals.max_health
+	var ev0 := fx.events.size()
+	var tc := await _c11_parry(ins)
+	_check(ins.results.back().get("result", -9) == DefenseController.Result.PERFECT, "parry perfeito (aperto 0,07 s antes)")
+	_check(vis.deflect_active() and vis.deflect_time() >= 0.0 and vis.deflect_time() < 0.03, "deflexão começa no instante do contato", "%.3f s" % vis.deflect_time())
+	_check(fx.events.size() > ev0 and fx.events.back() == "parry", "som e faíscas disparam no mesmo passo do parry")
+	var pt: Vector3 = ins.results.back()["point"]
+	var mine := vis.blade_segment()
+	var near_mine := Geometry3D.get_closest_point_to_segment(pt, mine[0], mine[1]).distance_to(pt)
+	var theirs := [ins.blade_base(), ins.blade_tip()]
+	var near_theirs := Geometry3D.get_closest_point_to_segment(pt, theirs[0], theirs[1]).distance_to(pt)
+	print("  [medição] ponto de contato: a %.2f m da katana do jogador e a %.2f m da lâmina do Instrutor" % [near_mine, near_theirs])
+	_check(near_mine < 0.5 and near_theirs < 0.5, "faíscas no ponto onde as duas lâminas se encontram", "%.2f / %.2f m" % [near_mine, near_theirs])
+	_check(vis.is_frozen(), "o corpo congela no quadro de impacto durante o hitstop")
+	var t_ref := vis.deflect_time()
+	await _ticks(2)
+	_check(absf(vis.deflect_time() - t_ref) < 0.0001, "deflexão congelada durante o hitstop (não avança)")
+	await _wait_until(func(): return not vis.is_frozen(), 0.3)
+	await _seconds(0.12)
+	_check(vis.deflect_time() > 0.08, "depois do hitstop o varrido continua", "%.3f s" % vis.deflect_time())
+	_check(vis.guard_blend() > 0.5, "a pose de deflexão fica visível mesmo com o botão solto")
+	# Nenhum contra-ataque automático: sem J nada começa.
+	var sw0 := c.swing_id
+	await _seconds(df.data.counter_window)
+	_check(c.swing_id == sw0 and not c.is_attacking(), "sem J não há contra-ataque (nada automático)")
+	_check(df.opportunities_expired >= 1 and not df.opportunity_open(CombatClock.time), "a oportunidade expirou sem uso")
+
+	# 2. Deflexão → corrida, → esquiva, → contra-ataque.
+	ins = await _c1_setup()
+	await _c11_parry(ins)
+	await _seconds(0.15)
+	_key(KEY_S, true)
+	var run := await _speed_trace(0.4)
+	_check(run.last >= cruise * 0.9, "deflexão → corrida: velocidade retomada sem pausa", "%.2f m/s" % run.last)
+	_key(KEY_S, false)
+	await _seconds(0.5)
+	ins = await _c1_setup()
+	await _c11_parry(ins)
+	await _tap(KEY_SPACE)
+	var dd := await _wait_until(func(): return _player.state == Player.State.DODGE, 0.2)
+	_check(dd >= 0.0 and not vis.is_frozen(), "deflexão → esquiva: a esquiva responde mesmo no hitstop do parry")
+	await _seconds(0.6)
+
+	# 3. Contra-ataque manual: só com parry válido, J depois do parry.
+	ins = await _c1_setup()
+	var hits_before := ins.hits.size()
+	var dmg_before := ins.total_damage
+	var sw1 := c.swing_id
+	await _c11_parry(ins)
+	await _attack_tap()
+	await _wait_until(func(): return c.swing_id > sw1 and c.is_counter, 0.6)
+	_check(c.is_counter and c.current == counter and _player.state == Player.State.ATTACK, "J depois de um parry perfeito: contra-corte")
+	_check(df.opportunities_used >= 1 and not df.opportunity_open(CombatClock.time), "a oportunidade foi consumida ao começar")
+	await _wait_until(func(): return not c.is_attacking(), 1.0)
+	_check(ins.hits.size() == hits_before + 1 and absf(ins.total_damage - dmg_before - counter.damage) < 0.001, "contra-corte acerta o Instrutor uma única vez (dano 30)", "acertos %d" % (ins.hits.size() - hits_before))
+	_check(String(ins.hits.back()["strike"]) == "contra_corte", "contato registrado como contra-corte")
+	await _seconds(0.3)
+	# Consumo único: um segundo J dentro da janela original NÃO contra-ataca de novo.
+	var idx_before := c.swing_id
+	await _attack_tap()
+	await _wait_until(func(): return c.swing_id > idx_before, 0.4)
+	_check(c.swing_id > idx_before and not c.is_counter and c.current == c.combo.strikes[0], "segundo J na mesma janela: cadeia normal (Kesa), sem contra-ataque grátis")
+	await _wait_until(func(): return not c.is_attacking(), 1.5)
+	await _seconds(0.8)
+
+	# 4. J sem parry (e depois de defesa normal ou golpe recebido): cadeia normal.
+	ins = await _c1_setup()
+	sw1 = c.swing_id
+	await _attack_tap()
+	await _wait_until(func(): return c.swing_id > sw1, 0.4)
+	_check(not c.is_counter and c.current == c.combo.strikes[0], "J sem parry: Kesa como antes")
+	await _wait_until(func(): return not c.is_attacking(), 1.5)
+	ins.enabled = true
+	ins.interval = 0.4
+	await _seconds(0.7)
+	ins = await _c1_setup()
+	var tcb := await _c1_next_contact(ins)
+	await _press_defend_at(tcb - 0.30)
+	await _wait_until(func(): return ins.results.size() > 0 and float(ins.results.back().get("time", 0.0)) >= tcb - 0.001, 1.0)
+	_key(KEY_K, false)
+	_check(ins.results.back().get("result", -9) == DefenseController.Result.BLOCK and not df.opportunity_open(CombatClock.time), "defesa normal não abre oportunidade")
+	await _seconds(0.8)
+	ins = await _c1_setup()
+	await _c1_next_contact(ins)
+	await _wait_until(func(): return ins.phase == TrainingInstructor.Phase.RECOVERY, 1.5)
+	_check(ins.results.back().get("result", -9) == DefenseController.Result.HIT and not df.opportunity_open(CombatClock.time), "golpe recebido não abre oportunidade")
+	await _seconds(0.8)
+
+	# 5. Expiração: J depois de 0,80 s é cadeia normal.
+	ins = await _c1_setup()
+	await _c11_parry(ins)
+	await _seconds(df.data.counter_window + 0.1)
+	sw1 = c.swing_id
+	await _attack_tap()
+	await _wait_until(func(): return c.swing_id > sw1, 0.4)
+	_check(not c.is_counter and c.current == c.combo.strikes[0], "J depois da janela de 0,80 s: cadeia normal (Kesa)")
+	await _wait_until(func(): return not c.is_attacking(), 1.5)
+	await _seconds(0.7)
+
+	# 6. Buffer e hitstop: J apertado DURANTE o hitstop do parry sai logo depois dele.
+	ins = await _c1_setup()
+	tc = await _c1_next_contact(ins)
+	await _press_defend_at(tc - 0.07)
+	_key(KEY_K, false)
+	await _wait_until(func(): return _player._freeze_until > CombatClock.time, 0.5)
+	sw1 = c.swing_id
+	await _attack_tap()
+	_check(c.swing_id == sw1, "durante o hitstop o contra-ataque ainda não começou (corpo congelado)")
+	var started := await _wait_until(func(): return c.swing_id > sw1 and c.is_counter, 0.5)
+	_check(started >= 0.0, "J apertado no hitstop não se perde: o contra-corte sai logo depois")
+	await _wait_until(func(): return not c.is_attacking(), 1.0)
+	await _seconds(0.8)
+
+	# 7. Prioridade: esquiva vence o contra-ataque no mesmo passo; a oportunidade continua disponível.
+	ins = await _c1_setup()
+	await _c11_parry(ins)
+	await _wait_until(func(): return not vis.is_frozen(), 0.3)
+	var sw_pre := c.swing_id
+	_key(KEY_SPACE, true)
+	_key(KEY_J, true)
+	await physics_frame
+	_key(KEY_SPACE, false)
+	_key(KEY_J, false)
+	await _ticks(2)
+	_check(_player.state == Player.State.DODGE and c.swing_id == sw_pre, "esquiva e J no mesmo passo: esquiva vence")
+	await _seconds(0.1)
+	_check(df.opportunity_open(CombatClock.time) or df.opportunities_expired > 0, "a esquiva não gastou a oportunidade (só o contra-ataque gasta)")
+	await _seconds(0.8)
+
+	# 8. Contra-ataque dentro e fora do alcance.
+	ins = await _c1_setup()
+	hits_before = ins.hits.size()
+	await _c11_parry(ins)
+	await _wait_until(func(): return not vis.is_frozen(), 0.3)
+	await _attack_tap()
+	await _wait_until(func(): return not c.is_attacking(), 1.0)
+	_check(ins.hits.size() == hits_before + 1, "contra-ataque dentro do alcance acerta")
+	await _seconds(0.8)
+	ins = await _c1_setup()
+	hits_before = ins.hits.size()
+	var misses0 := _player.hit_detector.total_misses
+	await _c11_parry(ins)
+	await _wait_until(func(): return not vis.is_frozen(), 0.3)
+	_player.global_position = ins.global_position + Vector3(0, 0.05, 6.0)
+	await _attack_tap()
+	await _wait_until(func(): return c.is_counter or not c.is_attacking(), 0.4)
+	await _wait_until(func(): return not c.is_attacking(), 1.0)
+	_check(ins.hits.size() == hits_before and _player.hit_detector.total_misses > misses0, "contra-ataque fora do alcance erra (e a oportunidade foi gasta)")
+	_check(not df.opportunity_open(CombatClock.time), "oportunidade gasta mesmo errando")
+	await _seconds(0.8)
+
+	# 9. Contra-ataque seguido de esquiva e corrida.
+	ins = await _c1_setup()
+	await _c11_parry(ins)
+	await _wait_until(func(): return not vis.is_frozen(), 0.3)
+	await _attack_tap()
+	await _wait_until(func(): return c.is_counter and c.clip_time() >= counter.dodge_cancel_from + 2.0 / 60.0, 0.5)
+	await _tap(KEY_SPACE)
+	var dc := await _wait_until(func(): return _player.state == Player.State.DODGE, 0.3)
+	_check(dc >= 0.0 and not c.is_attacking(), "contra-ataque → esquiva: cancela na janela")
+	await _seconds(0.6)
+	ins.enabled = false
+	_key(KEY_S, true)
+	var run2 := await _speed_trace(0.5)
+	_check(run2.last >= cruise * 0.9, "depois do contra-ataque a corrida volta ao normal", "%.2f m/s" % run2.last)
+	_key(KEY_S, false)
+	await _seconds(0.3)
+	_check(FileAccess.get_sha256("res://assets/animations/katana/katana_kesa.res") == KESA_APPROVED_SHA256, "Kesa continua idêntico ao aprovado depois do C1.1")
 	await _reset_player(Vector3(-25, 0.05, 25), -PI / 2.0)
