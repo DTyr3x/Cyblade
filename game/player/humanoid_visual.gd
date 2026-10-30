@@ -40,6 +40,11 @@ const SEAMLESS_BLEND_MAX := 0.12
 ## Guarda (C1): clipe autoral e tempos de entrada e saída da mistura (s).
 const GUARD_CLIP_PATH := "res://assets/animations/katana/katana_guarda.res"
 const GUARD_CLIP_NAME := &"Katana_Guarda"
+const DEFLECT_CLIP_PATH := "res://assets/animations/katana/katana_deflexao.res"
+const DEFLECT_CLIP_NAME := &"Katana_Deflexao"
+## Duração da deflexão (s) e quanto a pose de "pronto" segura antes de soltar a mistura.
+const DEFLECT_TIME := 0.30
+const DEFLECT_HOLD := 0.20
 const GUARD_IN := 0.035
 const GUARD_OUT := 0.08
 
@@ -74,6 +79,10 @@ var _sel_node: AnimationNodeTransition
 var _guard_target := 0.0
 var _guard_blend := 0.0
 var _has_guard := false
+var _has_deflect := false
+var _deflect_left := 0.0
+var _deflect_elapsed := -1.0
+var _sel_guard: AnimationNodeTransition
 var _freeze_left := 0.0
 var _armor: StandardMaterial3D
 var _body_flash := 0.0
@@ -111,7 +120,9 @@ func update_pose(delta: float, velocity: Vector3, forward: Vector3, max_speed: f
 	var blend_target := 1.0 if _strike_active else 0.0
 	var tau := STRIKE_FADE_IN * 0.5 if _strike_active else STRIKE_FADE_OUT * 0.5
 	_strike_blend = lerpf(_strike_blend, blend_target, MotionMath.smooth_alpha(delta, tau))
-	_guard_blend = lerpf(_guard_blend, _guard_target, MotionMath.smooth_alpha(delta, GUARD_IN if _guard_target > _guard_blend else GUARD_OUT))
+	_update_deflect(delta)
+	var guard_goal := 1.0 if (_guard_target > 0.5 or _deflect_left > 0.0) else 0.0
+	_guard_blend = lerpf(_guard_blend, guard_goal, MotionMath.smooth_alpha(delta, GUARD_IN if guard_goal > _guard_blend else (GUARD_OUT if _deflect_elapsed < 0.0 else GUARD_OUT * 1.5)))
 	if _has_guard:
 		anim_tree["parameters/Guard/blend_amount"] = _guard_blend
 	pose_modifier.set_strike_blend(maxf(_strike_blend, _guard_blend))
@@ -202,9 +213,26 @@ func _setup_tree(combo: ComboSet) -> void:
 	# Guarda: Blend2 com filtro (só coluna, cabeça e braços) entre a locomoção e a pose de guarda.
 	var base_out := "RunScale"
 	if _has_guard:
+		# Entrada do Blend2: seletor guarda estática (g0) / deflexão (g1). A deflexão toca uma vez a partir do
+		# contato e segura a pose de "pronto" no fim.
 		var guard_clip := AnimationNodeAnimation.new()
 		guard_clip.animation = GUARD_CLIP_NAME
-		root.add_node("GuardClip", guard_clip)
+		root.add_node("GuardPose", guard_clip)
+		var sel_g := AnimationNodeTransition.new()
+		_sel_guard = sel_g
+		sel_g.input_count = 2
+		sel_g.xfade_time = 0.0
+		sel_g.set_input_name(0, "g0")
+		sel_g.set_input_name(1, "g1")
+		root.add_node("GuardClip", sel_g)
+		root.connect_node("GuardClip", 0, "GuardPose")
+		if _has_deflect:
+			var defl := AnimationNodeAnimation.new()
+			defl.animation = DEFLECT_CLIP_NAME
+			root.add_node("DeflectPose", defl)
+			root.connect_node("GuardClip", 1, "DeflectPose")
+		else:
+			root.connect_node("GuardClip", 1, "GuardPose")
 		var guard := AnimationNodeBlend2.new()
 		guard.filter_enabled = true
 		for path: NodePath in _upper_body_paths():
@@ -217,15 +245,15 @@ func _setup_tree(combo: ComboSet) -> void:
 		# Golpes: seletor de clipe -> escala de velocidade -> OneShot sobre a locomoção.
 		var sel := AnimationNodeTransition.new()
 		_sel_node = sel
-		sel.input_count = combo.strikes.size()
+		sel.input_count = _strike_clips.size()
 		sel.xfade_time = 0.0
-		for i in combo.strikes.size():
+		for i in _strike_clips.size():
 			sel.set_input_name(i, "s%d" % i)
 			var clip := AnimationNodeAnimation.new()
 			clip.animation = _strike_clips[i]
 			root.add_node("Clip%d" % i, clip)
 		root.add_node("Sel", sel)
-		for i in combo.strikes.size():
+		for i in _strike_clips.size():
 			root.connect_node("Sel", i, "Clip%d" % i)
 		root.add_node("StrikeScale", AnimationNodeTimeScale.new())
 		root.connect_node("StrikeScale", 0, "Sel")
@@ -283,6 +311,16 @@ func setup_strikes(combo: ComboSet) -> void:
 			lib.remove_animation(clip_name)
 		lib.add_animation(clip_name, clip)
 		_strike_clips.append(clip_name)
+	# Contra-golpe de oportunidade (C1.1): fatia extra depois da cadeia (índice = strikes.size()).
+	if combo.counter_strike != null:
+		var cs := combo.counter_strike
+		var csrc := cs.clip_resource if cs.clip_resource != null else src
+		var cclip := KatanaClips.derive(csrc, cs.clip_from, cs.clip_to, KatanaClips.Mirror.NONE)
+		var cname := StringName("Katana_%d" % combo.strikes.size())
+		if lib.has_animation(cname):
+			lib.remove_animation(cname)
+		lib.add_animation(cname, cclip)
+		_strike_clips.append(cname)
 	# Pose de guarda (C1), autoral: tools/blender/katana_guard_keys.py.
 	if ResourceLoader.exists(GUARD_CLIP_PATH):
 		var guard := load(GUARD_CLIP_PATH) as Animation
@@ -291,6 +329,14 @@ func setup_strikes(combo: ComboSet) -> void:
 			lib.remove_animation(GUARD_CLIP_NAME)
 		lib.add_animation(GUARD_CLIP_NAME, guard)
 		_has_guard = true
+	# Deflexão do parry perfeito (C1.1), autoral: tools/blender/katana_deflect_keys.py.
+	if ResourceLoader.exists(DEFLECT_CLIP_PATH):
+		var defl := load(DEFLECT_CLIP_PATH) as Animation
+		defl.loop_mode = Animation.LOOP_NONE
+		if lib.has_animation(DEFLECT_CLIP_NAME):
+			lib.remove_animation(DEFLECT_CLIP_NAME)
+		lib.add_animation(DEFLECT_CLIP_NAME, defl)
+		_has_deflect = true
 	_setup_tree(combo)
 
 
@@ -298,6 +344,7 @@ func setup_strikes(combo: ComboSet) -> void:
 func play_strike(data: StrikeData, index: int, from_data: StrikeData = null, from_clip_time := 0.0) -> void:
 	if anim_tree == null or _strike_clips.is_empty():
 		return
+	cancel_deflect()
 	# Encadeamento contínuo: os dois golpes são autorais e o corpo ainda está no golpe anterior.
 	# Troca o clipe dentro do mesmo OneShot (sem voltar à locomoção); o primeiro quadro do novo clipe
 	# é a pose do anterior no quadro de encadeamento, e o resíduo (encadeamento tardio) é suavizado.
@@ -354,6 +401,48 @@ func blade_segment(from := Katana.BLADE_START, to := Katana.BLADE_END) -> Array[
 ## Pose de guarda ligada/desligada (a mistura é suave e rápida).
 func set_guard(on: bool) -> void:
 	_guard_target = 1.0 if on else 0.0
+
+
+## Toca a deflexão a partir do contato (instante do parry perfeito). O jogo congela o corpo no quadro de
+## impacto durante o hitstop (`freeze`) e depois o varrido continua.
+func play_deflect() -> void:
+	if not _has_deflect or _sel_guard == null:
+		return
+	_deflect_left = DEFLECT_TIME + DEFLECT_HOLD
+	_deflect_elapsed = 0.0
+	_sel_guard.xfade_time = 0.0
+	anim_tree["parameters/GuardClip/transition_request"] = "g0"
+	anim_tree["parameters/GuardClip/transition_request"] = "g1"
+
+
+## A deflexão está em andamento (inclui o tempo que segura a pose de pronto).
+func deflect_active() -> bool:
+	return _deflect_left > 0.0
+
+
+## Tempo desde o contato (s), sem contar o congelamento; -1 se não há deflexão.
+func deflect_time() -> float:
+	return _deflect_elapsed
+
+
+func cancel_deflect() -> void:
+	_deflect_left = 0.0
+	_deflect_elapsed = -1.0
+	if _sel_guard != null and anim_tree != null:
+		_sel_guard.xfade_time = 0.0
+		anim_tree["parameters/GuardClip/transition_request"] = "g0"
+
+
+func _update_deflect(delta: float) -> void:
+	if _deflect_left <= 0.0 or _freeze_left > 0.0:
+		return
+	_deflect_left = maxf(_deflect_left - delta, 0.0)
+	_deflect_elapsed += delta
+	if _deflect_left <= 0.0:
+		_deflect_elapsed = -1.0
+		if _sel_guard != null:
+			_sel_guard.xfade_time = 0.12
+			anim_tree["parameters/GuardClip/transition_request"] = "g0"
 
 
 func guard_blend() -> float:

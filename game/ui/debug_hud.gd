@@ -90,13 +90,15 @@ func _defense_text() -> String:
 		flags += " [janela]"
 	if df.in_lockout(now):
 		flags += " [parry bloqueado: em falso]"
+	if df.opportunity_open(now):
+		flags += " [ABERTURA %.2f s: J contra-ataca]" % df.opportunity_left(now)
 	var v := player.vitals
 	var ins_s := ""
 	var main := get_parent()
 	if main != null and main.get("instructor") != null:
 		var ins: TrainingInstructor = main.get("instructor")
 		ins_s = "  Instrutor: %s  pressão de postura %.0f" % [TrainingInstructor.Phase.keys()[ins.phase], ins.posture_pressure]
-	return "Defesa: %s%s  último: %s  em falso: %d\nVida %.0f  Energia Neural %.0f%s" % ["GUARDA" if player.state == Player.State.GUARD else "-", flags, last, df.whiff_count, v.health, v.neural_energy, ins_s]
+	return "Defesa: %s%s  último: %s  em falso: %d\nVida %.0f  Energia Neural %.0f%s" % ["GUARDA" if player.state == Player.State.GUARD else "-", flags, last, df.whiff_count, df.opportunities_opened, df.opportunities_used, df.opportunities_expired, v.health, v.neural_energy, ins_s]
 
 
 func player_screen_height_percent() -> float:

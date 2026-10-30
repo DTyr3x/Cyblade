@@ -41,6 +41,7 @@ var results: Array[Dictionary] = []
 var target: Node3D
 var _arm: Node3D
 var _blade_mat: StandardMaterial3D
+var _visor_mat: StandardMaterial3D
 var _cue_done := false
 var _resolved := false
 var _hold := 0.0
@@ -79,6 +80,7 @@ func _build() -> void:
 	visor.emission_enabled = true
 	visor.emission = Color(0.1, 0.9, 1.0)
 	visor.emission_energy_multiplier = 2.0
+	_visor_mat = visor
 	var base := CylinderMesh.new()
 	base.top_radius = 0.40
 	base.bottom_radius = 0.45
@@ -132,6 +134,10 @@ func _build() -> void:
 ## Ponta da lâmina do Instrutor no mundo (efeitos: faíscas no contato).
 func blade_tip() -> Vector3:
 	return _arm.global_transform * Vector3(0, -1.4, 0)
+
+
+func blade_base() -> Vector3:
+	return _arm.global_transform * Vector3(0, -0.55, 0)
 
 
 func blade_mid() -> Vector3:
@@ -271,4 +277,10 @@ func _update_visual(delta: float) -> void:
 	_arm.rotation.x = deg_to_rad(_arm_angle)
 	_glint = maxf(_glint - delta * 10.0, 0.0)
 	_blade_mat.emission_energy_multiplier = _glint * 4.0
+	# Abertura de contra-ataque: o visor do Instrutor passa de ciano a branco enquanto a oportunidade
+	# está aberta (discreto, sem partículas).
+	var open := target != null and target.get("defense") != null and (target.get("defense") as DefenseController).opportunity_open(CombatClock.time) and (target.get("defense") as DefenseController).opportunity_source == self
+	_visor_mat.emission = Color(0.1, 0.9, 1.0).lerp(Color(1, 1, 1), 1.0 if open else 0.0)
+	_visor_mat.albedo_color = _visor_mat.emission
+	_visor_mat.emission_energy_multiplier = 5.0 if open else 2.0
 	_mat.emission_energy_multiplier = maxf(glow, _flash * 0.9)

@@ -120,6 +120,7 @@ func _physics_process(delta: float) -> void:
 	if state != State.ATTACK:
 		combat.tick(delta)   # relógio do combate fora de um golpe: buffer expira e o reinício da cadeia conta
 	defense.update(now)
+	defense.update_opportunity(now)
 	vitals.tick(delta)
 
 	match state:
@@ -245,6 +246,13 @@ func _enter(new_state: State, carry: float) -> void:
 func _try_start_attack() -> bool:
 	if _dodge_buffer > 0.0 or not combat.has_buffered_attack():
 		return false
+	# Contra-ataque de oportunidade: só com a oportunidade aberta por um parry perfeito (um J manual, nunca
+	# automático). Gasta a oportunidade ao COMEÇAR. Fora dela, a cadeia normal vale como antes.
+	var now := CombatClock.time
+	if defense.opportunity_open(now) and not combat.is_attacking() and combat.has_buffered_attack():
+		if defense.consume_opportunity(now) and combat.start_counter():
+			_enter(State.ATTACK, 0.0)
+			return true
 	if combat.try_start(true):
 		_enter(State.ATTACK, 0.0)
 		return true
@@ -449,6 +457,8 @@ func receive_enemy_attack(attack: EnemyAttackData, t: float, source: Node3D) -> 
 	match int(info["result"]):
 		DefenseController.Result.PERFECT:
 			hitstop = d.parry_hitstop
+			visual.play_deflect()
+			defense.grant_opportunity(t, DefenseController.Result.PERFECT, source)
 			info["posture_pressure"] = d.parry_posture_pressure
 			vitals.add_neural_energy(d.parry_neural_energy)
 		DefenseController.Result.BLOCK:
@@ -470,7 +480,21 @@ func receive_enemy_attack(attack: EnemyAttackData, t: float, source: Node3D) -> 
 		visual.freeze(hitstop)
 	info["hitstop"] = hitstop
 	info["source"] = source
-	info["point"] = global_position + Vector3.UP * 1.25 - away * 0.45
+	info["point"] = _contact_point(source, away)
 	info["away"] = away
 	attacked.emit(info)
 	return info
+
+
+## Ponto onde as lâminas se encontram: meio do menor segmento entre a katana do jogador e a lâmina do
+## Instrutor. Se estiverem longe (pose ainda a caminho), cai para um ponto à frente do peito.
+func _contact_point(source: Node3D, away: Vector3) -> Vector3:
+	var fallback := global_position + Vector3.UP * 1.25 - away * 0.45
+	if source is TrainingInstructor and visual.katana != null:
+		var ins := source as TrainingInstructor
+		var mine := visual.blade_segment()
+		var theirs: Array[Vector3] = [ins.blade_base(), ins.blade_tip()]
+		var pts := Geometry3D.get_closest_points_between_segments(mine[0], mine[1], theirs[0], theirs[1])
+		if pts[0].distance_to(pts[1]) < 0.9:
+			return (pts[0] + pts[1]) * 0.5
+	return fallback
