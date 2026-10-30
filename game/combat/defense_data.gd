@@ -37,6 +37,15 @@ const DEFAULT_PATH := "res://game/data/defesa.tres"
 ## Aperto de defesa durante uma ação que ainda não pode ser cancelada fica guardado por este tempo.
 @export_range(0.0, 0.3, 0.01) var input_buffer := 0.10
 
+@export_group("Contra-ataque de oportunidade (C1.1)")
+## Depois de um parry PERFEITO, por este tempo o jogador pode contra-atacar com J (a oportunidade).
+## Separada do desequilíbrio do Instrutor: são dois tempos independentes.
+@export_range(0.1, 2.0, 0.01) var counter_window := 0.80
+## Elegibilidade: só o parry perfeito abre a oportunidade (defesa normal e golpe recebido não).
+@export var counter_requires_perfect := true
+## Consumo: quantos contra-ataques um único parry rende (1 = nunca contra-ataques grátis em sequência).
+@export_range(1, 3) var counter_charges := 1
+
 @export_group("Recompensas (contadores do C1; efeito no C2/C3)")
 @export var parry_posture_pressure := 25.0
 @export var parry_neural_energy := 10.0

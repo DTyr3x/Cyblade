@@ -105,3 +105,60 @@ func resolve(t: float, damage: float) -> Dictionary:
 	var info := {"result": result, "damage": dmg, "offset": last_offset, "time": t}
 	resolved.emit(result, info)
 	return info
+
+
+# --- Oportunidade de contra-ataque (C1.1) -------------------------------------------------------
+## Um parry perfeito abre UMA oportunidade (`counter_window`). Elegibilidade, janela e consumo são
+## separados: quem decide abrir é o resultado do parry; a janela é só tempo; o consumo acontece
+## quando o contra-ataque COMEÇA (acertando ou não) ou quando o tempo acaba.
+
+signal opportunity_opened(source: Node3D, until: float)
+signal opportunity_consumed
+signal opportunity_expired
+
+var opportunity_until := -INF
+var opportunity_source: Node3D
+var opportunity_charges := 0
+## Quantas oportunidades já foram abertas / usadas / expiradas (HUD e testes).
+var opportunities_opened := 0
+var opportunities_used := 0
+var opportunities_expired := 0
+
+
+## Abre a oportunidade se o resultado é elegível (por padrão, só PERFECT).
+func grant_opportunity(t: float, result: int, source: Node3D) -> bool:
+	if data.counter_requires_perfect and result != Result.PERFECT:
+		return false
+	opportunity_until = t + data.counter_window
+	opportunity_source = source
+	opportunity_charges = data.counter_charges
+	opportunities_opened += 1
+	opportunity_opened.emit(source, opportunity_until)
+	return true
+
+
+func opportunity_open(t: float) -> bool:
+	return opportunity_charges > 0 and t <= opportunity_until
+
+
+## Tempo que resta da oportunidade (s); 0 se fechada.
+func opportunity_left(t: float) -> float:
+	return maxf(opportunity_until - t, 0.0) if opportunity_charges > 0 else 0.0
+
+
+## Gasta uma carga (o contra-ataque começou). Devolve false se não havia oportunidade.
+func consume_opportunity(t: float) -> bool:
+	if not opportunity_open(t):
+		return false
+	opportunity_charges -= 1
+	opportunities_used += 1
+	opportunity_consumed.emit()
+	return true
+
+
+## Fecha a oportunidade se o tempo acabou sem uso.
+func update_opportunity(t: float) -> void:
+	if opportunity_charges > 0 and t > opportunity_until:
+		opportunity_charges = 0
+		opportunities_expired += 1
+		opportunity_expired.emit()

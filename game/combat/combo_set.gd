@@ -10,9 +10,14 @@ const KESA_CLIP := "res://assets/animations/katana/katana_kesa.res"
 const KIRIAGE_CLIP := "res://assets/animations/katana/katana_kiriage.res"
 ## Clipe autoral do golpe 3 (tools/build_katana_strike.ps1).
 const TSUKI_CLIP := "res://assets/animations/katana/katana_tsuki.res"
+## Clipes autorais do C1.1 (tools/build_katana_strike.ps1).
+const COUNTER_CLIP := "res://assets/animations/katana/katana_contra.res"
 
 @export var weapon_family: StringName = WeaponStance.KATANA
 @export var strikes: Array[StrikeData] = []
+## Contra-golpe de oportunidade (C1.1): fora da cadeia. Só começa pela oportunidade aberta por um parry
+## perfeito (ver DefenseController); fora dela a cadeia normal vale, como antes.
+@export var counter_strike: StrikeData
 ## Depois de terminar um golpe, o encadeamento ainda vale por este tempo (s); depois recomeça no 1.
 @export var combo_reset_time := 0.55
 ## Quanto tempo um ataque apertado antes da hora fica guardado (s).
@@ -113,4 +118,34 @@ static func katana_default() -> ComboSet:
 	s3.camera_shake = 0.03
 
 	set.strikes = [s1, s2, s3]
+	set.counter_strike = counter_default()
 	return set
+
+
+## Contra-corte (C1.1): corte horizontal curto e rápido, da direita para a esquerda, que nasce da pose
+## de saída da deflexão (tools/blender/katana_counter_keys.py). Quadros de 60 Hz: coil 0-4, contato
+## 5-10, livre 14, fim 22.
+static func counter_default() -> StrikeData:
+	var c := StrikeData.new()
+	c.id = &"contra_corte"
+	c.display_name = "Contra-corte"
+	c.clip_resource = load(COUNTER_CLIP) as Animation
+	c.authored_grip = true
+	c.sync_swish = true
+	c.clip_from = 0.0
+	c.clip_to = 22.0 / 60.0
+	c.speed = 1.0
+	c.active_start = 5.0 / 60.0
+	c.active_end = 10.0 / 60.0
+	c.chain_open = 22.0 / 60.0
+	c.dodge_cancel_from = 2.0 / 60.0
+	c.move_cancel_from = 14.0 / 60.0
+	c.advance_distance = 0.7
+	c.advance_start = 2.0 / 60.0
+	c.advance_end = 10.0 / 60.0
+	c.turn_lock = 4.0 / 60.0
+	c.damage = 30.0
+	c.hitstop = 0.09
+	c.knockback = 0.5
+	c.reaction = StrikeData.Reaction.LIGHT_RIGHT
+	return c

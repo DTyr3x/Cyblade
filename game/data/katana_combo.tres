@@ -1,16 +1,41 @@
 [gd_resource type="Resource" script_class="ComboSet" format=3]
 
-[ext_resource type="Script" path="res://game/combat/combo_set.gd" id="1_w5hie"]
-[ext_resource type="Script" path="res://game/combat/strike_data.gd" id="2_ofyvb"]
-[ext_resource type="Animation" path="res://assets/animations/katana/katana_kesa.res" id="3_2uwio"]
-[ext_resource type="Animation" path="res://assets/animations/katana/katana_kiriage.res" id="4_0fq5a"]
-[ext_resource type="Animation" path="res://assets/animations/katana/katana_tsuki.res" id="5_ede8r"]
+[ext_resource type="Animation" path="res://assets/animations/katana/katana_contra.res" id="1_ofyvb"]
+[ext_resource type="Script" path="res://game/combat/strike_data.gd" id="2_2uwio"]
+[ext_resource type="Script" path="res://game/combat/combo_set.gd" id="3_0fq5a"]
+[ext_resource type="Animation" path="res://assets/animations/katana/katana_kesa.res" id="4_ede8r"]
+[ext_resource type="Animation" path="res://assets/animations/katana/katana_kiriage.res" id="5_epw4d"]
+[ext_resource type="Animation" path="res://assets/animations/katana/katana_tsuki.res" id="6_gs47r"]
 
-[sub_resource type="Resource" id="Resource_epw4d"]
-script = ExtResource("2_ofyvb")
+[sub_resource type="Resource" id="Resource_i36pd"]
+script = ExtResource("2_2uwio")
+id = &"contra_corte"
+display_name = "Contra-corte"
+clip_resource = ExtResource("1_ofyvb")
+authored_grip = true
+sync_swish = true
+clip_from = 0.0
+clip_to = 0.36666666666666664
+speed = 1.0
+active_start = 0.08333333333333333
+active_end = 0.16666666666666666
+chain_open = 0.36666666666666664
+dodge_cancel_from = 0.03333333333333333
+move_cancel_from = 0.23333333333333334
+advance_distance = 0.7
+advance_start = 0.03333333333333333
+advance_end = 0.16666666666666666
+turn_lock = 0.06666666666666667
+damage = 30.0
+hitstop = 0.09
+knockback = 0.5
+reaction = 1
+
+[sub_resource type="Resource" id="Resource_nmppa"]
+script = ExtResource("2_2uwio")
 id = &"kesa_avancado"
 display_name = "Kesa avançado"
-clip_resource = ExtResource("3_2uwio")
+clip_resource = ExtResource("4_ede8r")
 authored_grip = true
 clip_from = 0.0
 clip_to = 0.55
@@ -25,11 +50,11 @@ advance_end = 0.25
 turn_lock = 0.1
 hitstop = 0.06
 
-[sub_resource type="Resource" id="Resource_gs47r"]
-script = ExtResource("2_ofyvb")
+[sub_resource type="Resource" id="Resource_fqn5w"]
+script = ExtResource("2_2uwio")
 id = &"kiriage_de_retorno"
 display_name = "Kiriage de retorno"
-clip_resource = ExtResource("4_0fq5a")
+clip_resource = ExtResource("5_epw4d")
 authored_grip = true
 seamless_chain = true
 sync_swish = true
@@ -48,11 +73,11 @@ turn_lock = 0.08333333333333333
 hitstop = 0.06
 reaction = 1
 
-[sub_resource type="Resource" id="Resource_i36pd"]
-script = ExtResource("2_ofyvb")
+[sub_resource type="Resource" id="Resource_bybfv"]
+script = ExtResource("2_2uwio")
 id = &"tsuki_de_passo_duplo"
 display_name = "Tsuki de passo duplo"
-clip_resource = ExtResource("5_ede8r")
+clip_resource = ExtResource("6_gs47r")
 authored_grip = true
 seamless_chain = true
 sync_swish = true
@@ -75,5 +100,6 @@ reaction = 2
 camera_shake = 0.03
 
 [resource]
-script = ExtResource("1_w5hie")
-strikes = Array[ExtResource("2_ofyvb")]([SubResource("Resource_epw4d"), SubResource("Resource_gs47r"), SubResource("Resource_i36pd")])
+script = ExtResource("3_0fq5a")
+strikes = Array[ExtResource("2_2uwio")]([SubResource("Resource_nmppa"), SubResource("Resource_fqn5w"), SubResource("Resource_bybfv")])
+counter_strike = SubResource("Resource_i36pd")

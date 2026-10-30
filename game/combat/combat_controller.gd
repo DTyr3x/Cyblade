@@ -34,6 +34,8 @@ var _phase_before := Phase.NONE
 ## Preenchidos durante a troca de um golpe por outro (encadeamento): quem escuta `strike_ended` e
 ## `strike_started` sabe que o corpo não deve voltar à locomoção entre os dois.
 var chaining := false
+## O golpe em curso é o contra-golpe de oportunidade.
+var is_counter := false
 var chained_from: StrikeData = null
 var chained_from_clip_time := 0.0
 
@@ -84,6 +86,7 @@ func try_start(can_act: bool) -> bool:
 
 
 func _start(i: int) -> void:
+	is_counter = false
 	var finished_before := current
 	chained_from = null
 	if phase != Phase.NONE and finished_before != null:
@@ -101,6 +104,25 @@ func _start(i: int) -> void:
 	_next_index = (i + 1) % combo.strikes.size()
 	_set_phase(Phase.WINDUP)
 	strike_started.emit(current, i, swing_id)
+
+
+## Começa o contra-golpe de oportunidade. Só a Player chama, depois de gastar a oportunidade.
+## Não mexe na cadeia: depois dele a próxima cadeia recomeça no golpe 1.
+func start_counter() -> bool:
+	if combo.counter_strike == null or phase != Phase.NONE:
+		return false
+	chained_from = null
+	index = combo.strikes.size()   # fatia própria no AnimationTree, fora da cadeia
+	current = combo.counter_strike
+	swing_id += 1
+	time = 0.0
+	_buffer = 0.0
+	_hitstop = 0.0
+	_next_index = 0
+	is_counter = true
+	_set_phase(Phase.WINDUP)
+	strike_started.emit(current, index, swing_id)
+	return true
 
 
 func dodge_cancel_open() -> bool:
