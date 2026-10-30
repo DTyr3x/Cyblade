@@ -1,6 +1,6 @@
 # C1.0: defesa e parry (protótipo jogável)
 
-Status: **implementado e testado por script. NÃO aprovado: depende do playtest humano do PO.**
+Status: **APROVADO PELO PO após playtest humano (9 de 9 critérios, sem ressalvas).** Ver "Aprovação do PO" no fim deste documento.
 Branch `feat/c1-parry`, criada a partir do HEAD de `feat/h2-combate-katana` (`5d398d8`). **Depende do H2** (combate do PR #3, ainda sem merge). Sem PR e sem merge nesta etapa; se um PR for aberto depois, a base deve ser `feat/h2-combate-katana`, para não repetir o H2 na comparação.
 
 Proposta aprovada: `docs/c1-parry-proposta.md`. Filosofia: `docs/combate-filosofia.md`.
@@ -144,3 +144,13 @@ Vá até o Instrutor (à direita do boneco) e fique a uns 2 m dele. Use **K** (o
 10. A **esquiva** continua fluida, mesmo saindo da guarda ou depois de um parry em falso?
 11. Os efeitos atrapalham a visão em algum momento, na câmera de jogo?
 12. Depois de alguns minutos: **dá vontade de dominar o parry?**
+
+## Aprovação do PO
+
+O PO realizou o playtest humano do **C1.0** e o aprovou definitivamente (30/10/2026): **9 de 9 critérios aprovados, sem ressalvas.**
+
+Aprovados: defesa, penalidades (golpe recebido e parry em falso), efeitos, responsividade e fluidez. **A janela perfeita de 0,14 s está mantida.**
+
+O C1.0 passa a ser uma **base protegida contra regressões**: os valores de `game/data/defesa.tres` e `game/data/instrutor_ataque.tres` (janela 0,14 s, bloqueio de parry em falso 0,25 s, defesa deixa 20%, hitstops, tempos do Instrutor) só mudam com nova autorização do PO. Os testes `C1: lógica da defesa` e `C1: Instrutor, parry, defesa e golpe recebido` (e a verificação por FPS) protegem esse comportamento.
+
+Próximo: C1.1, deflexão autoral e contra-ataque de oportunidade (`docs/c1-1-deflexao-contra-ataque.md`).
