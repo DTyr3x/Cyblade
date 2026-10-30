@@ -13,6 +13,7 @@ var _rig: CameraRig
 var _cam: Camera3D
 var _mode := "lado"
 var _sheet_dir := ""
+var _only_c11 := false
 
 
 func _initialize() -> void:
@@ -21,6 +22,8 @@ func _initialize() -> void:
 			_mode = a.substr(6)
 		elif a.begins_with("--sheet="):
 			_sheet_dir = "res://" + a.substr(8)
+		elif a == "--c11":
+			_only_c11 = true
 	if _sheet_dir != "":
 		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(_sheet_dir))
 	_run()
@@ -73,9 +76,13 @@ func _run() -> void:
 	_player.reset_physics_interpolation()
 	_rig.snap()
 	await _frames(20)
-	await _scenario("c1_01_sem_defesa", 99.0, false)
-	await _scenario("c1_02_defesa_normal", -0.30, true)
-	await _scenario("c1_03_parry_perfeito", -0.07, false, true)
+	if _only_c11:
+		await _scenario("c11_01_parry_deflexao_contra_ataque", -0.07, false, "counter")
+		await _scenario("c11_02_parry_esquiva_corrida", -0.07, false, "dodge")
+	else:
+		await _scenario("c1_01_sem_defesa", 99.0, false)
+		await _scenario("c1_02_defesa_normal", -0.30, true)
+		await _scenario("c1_03_parry_perfeito", -0.07, false)
 	await _frames(30)
 	print("[c1_demo] ok")
 	quit()
@@ -83,7 +90,7 @@ func _run() -> void:
 
 ## Espera a próxima preparação e aperta K em (contato + offset). offset 99 = não defende.
 ## `counter`: depois do parry, ataca o Instrutor desequilibrado (Kesa → Kiriage).
-func _scenario(name: String, offset: float, hold: bool, counter := false) -> void:
+func _scenario(name: String, offset: float, hold: bool, kind := "") -> void:
 	while not (_ins.phase == TrainingInstructor.Phase.WINDUP and _ins.next_contact_time > 0.0):
 		await _frames(1)
 	var tc := _ins.next_contact_time
@@ -95,17 +102,23 @@ func _scenario(name: String, offset: float, hold: bool, counter := false) -> voi
 	var released := false
 	var frame := 0
 	var attacked := 0
-	while CombatClock.time < tc + (1.3 if counter else 0.75):
+	while CombatClock.time < tc + (1.3 if kind != "" else 0.75):
 		if not pressed and offset < 50.0 and CombatClock.time >= tc + offset:
 			_key(KEY_K, true)
 			pressed = true
 		elif pressed and not released and (not hold or CombatClock.time >= tc + 0.35):
 			_key(KEY_K, false)
 			released = true
-		if counter and attacked < 2 and CombatClock.time >= tc + 0.12 + attacked * 0.06:
+		if kind == "counter" and attacked < 1 and CombatClock.time >= tc + 0.16:
 			_key(KEY_J, true)
 			await _frames(1)
 			_key(KEY_J, false)
+			attacked += 1
+		if kind == "dodge" and attacked < 1 and CombatClock.time >= tc + 0.16:
+			_key(KEY_S, true)
+			_key(KEY_SPACE, true)
+			await _frames(1)
+			_key(KEY_SPACE, false)
 			attacked += 1
 		await _frames(1)
 		frame += 1
@@ -123,6 +136,7 @@ func _scenario(name: String, offset: float, hold: bool, counter := false) -> voi
 			else:
 				tiles.append(img.get_region(Rect2i(c.x - TILE.x / 2, c.y - TILE.y / 2, TILE.x, TILE.y)))
 	_key(KEY_K, false)
+	_key(KEY_S, false)
 	if _sheet_dir != "":
 		_save(tiles, "%s_%s.png" % [name, _mode])
 	await _frames(40)

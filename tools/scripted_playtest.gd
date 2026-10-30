@@ -248,6 +248,7 @@ func _defense() -> void:
 	ins.interval = 0.5
 	_teleport(ins.global_position + Vector3(0, 0.05, 1.7), 0.0)
 	var counts := {}
+	var counters := 0
 	for i in 4:
 		while not (ins.phase == TrainingInstructor.Phase.WINDUP and ins.next_contact_time > 0.0):
 			await get_tree().process_frame
@@ -263,11 +264,20 @@ func _defense() -> void:
 		if i == 0:
 			await _shot("c1_01_parry.png")
 		Input.action_release("defend")
+		if perfect:
+			# C1.1: contra-ataque manual de oportunidade (J) 0,16 s depois do contato.
+			while CombatClock.time < tc + 0.16:
+				await get_tree().process_frame
+			Input.action_press("attack")
+			await _wait(0.05)
+			Input.action_release("attack")
+			counters += 1
 		var r := str(ins.results.back().get("result", -1))
 		counts[r] = counts.get(r, 0) + 1
 		_teleport(ins.global_position + Vector3(0, 0.05, 1.7), 0.0)
 	ins.enabled = false
 	_results["defesa"] = counts
+	_results["contra_ataques"] = {"tentados": counters, "oportunidades_usadas": _player.defense.opportunities_used, "acertos_instrutor": ins.hits.size()}
 
 
 func _preset_run(index: int, label: String) -> void:
