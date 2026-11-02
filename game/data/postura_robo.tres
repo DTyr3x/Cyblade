@@ -4,7 +4,7 @@
 
 [resource]
 script = ExtResource("1_robo")
-max_posture = 100.0
+max_posture = 120.0
 recovery_delay = 1.5
 recovery_rate = 15.0
 combat_reset_time = 8.0
@@ -29,7 +29,7 @@ finish_arc_deg = 180.0
 finish_stop_distance = 1.05
 finish_resume_min = 0.25
 finish_down_time = 1.2
-finish_health_ratio = 0.4
+finish_health_ratio = 0.25
 break_neural_energy = 10.0
 finish_neural_energy = 30.0
 escalation_per_step = 0.25

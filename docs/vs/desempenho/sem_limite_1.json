@@ -1,0 +1,29 @@
+{
+	"cravadas": 3,
+	"dano_recebido": 24.0,
+	"esquivas_justas": 1,
+	"estilo": "parry",
+	"golpes": 650,
+	"padroes": {
+		"Corte duplo": 5,
+		"Investida": 1,
+		"Varredura": 3
+	},
+	"parries": 6,
+	"quadros": {
+		"avg_fps": 1356.77399449826,
+		"avg_ms": 0.737042428624822,
+		"frames": 41788,
+		"low01_fps": 361.794488720265,
+		"low1_fps": 454.545457008456,
+		"max_ms": 7.34800007194281,
+		"p50_ms": 0.621000013779849,
+		"p95_ms": 1.38300005346537,
+		"p99_ms": 2.19999998807907
+	},
+	"quebras": 3,
+	"resultado": "VITORIA",
+	"tempo_s": 30.7999999999988,
+	"vida_jogador": 120.0,
+	"vida_robo": 0.0
+}

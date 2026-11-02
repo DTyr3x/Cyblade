@@ -21,7 +21,7 @@ const AMBER := Color(1.0, 0.55, 0.12)
 const RED := Color(1.0, 0.08, 0.1)
 const LAST_HEALTH := 1.0
 
-@export var max_health := 600.0
+@export var max_health := 1500.0
 ## A esta distância do jogador o robô entra na luta (m).
 @export var detect_range := 30.0
 ## Distância que ele procura manter (m) e abaixo da qual recua.
@@ -40,7 +40,7 @@ const LAST_HEALTH := 1.0
 @export var sweep_chance := 0.3
 @export var rng_seed := 0
 
-var health := 600.0
+var health := 1500.0
 var engaged := false
 var dead := false
 ## Quantas vezes cada padrão saiu (HUD e testes).

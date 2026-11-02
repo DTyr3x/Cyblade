@@ -68,7 +68,7 @@ func _build() -> void:
 	add_child(_ring)
 
 	_letter = Label3D.new()
-	_letter.text = "F"
+	_letter.text = "F / Y"
 	_letter.font_size = 96
 	_letter.pixel_size = 0.008
 	_letter.outline_size = 18

@@ -29,6 +29,7 @@ Um ninja com katana enfrenta robôs numa megacidade industrial, com qualidade vi
 | C1.0 | Defesa e parry (Instrutor de treino, guarda, parry perfeito, falha de defesa) | Aprovado pelo PO (9 de 9; base protegida) |
 | C1.1 | Deflexão autoral do parry e contra-ataque de oportunidade | Aprovado pelo PO (9 de 9; base protegida) |
 | C2.0 | Núcleo de pressão de postura (pressão atual, cravada, limite de 80%) | Em avaliação pelo PO (branch `feat/c2-postura`, sem PR) |
+| VS 0.1 | Vertical slice: robô inimigo, quebra, Cravada, arena e fluxo completo (`docs/vertical-slice-v0.1.md`) | Em avaliação pelo PO (branch `feat/vertical-slice-v0.1`, sem PR) |
 | 2 | Direção gráfica | Planejado |
 | 3 | Combate | Planejado |
 | 4 | Forja de Combos | Planejado |
@@ -40,8 +41,13 @@ Dê dois cliques em `Jogar.bat` (ou rode `tools\run.ps1`). O script procura o Go
 
 | Ação | Teclado e mouse | Gamepad |
 |---|---|---|
+| Começar, lutar de novo | Enter | Start |
+| Treino (telas de início e fim) | T | n/d |
 | Mover | WASD ou setas | Stick esquerdo |
+| Atacar | J ou botão esquerdo | X |
+| Defesa e parry | K | LB |
 | Esquiva | Espaço ou Shift | B |
+| Cravada (inimigo quebrado) | F | Y |
 | Girar câmera | Botão direito + mouse, ou Q/E | Stick direito |
 | Centralizar câmera | R | R3 |
 | Enquadramento | 1, 2, 3 ou Tab | ← → |
@@ -52,7 +58,9 @@ Dê dois cliques em `Jogar.bat` (ou rode `tools\run.ps1`). O script procura o Go
 
 ## Testes
 
-- `tools\run_tests.ps1`: 133 verificações automatizadas, sem janela. Entradas simuladas.
+- `tools\run_tests.ps1`: 505 verificações automatizadas, sem janela. Entradas simuladas.
+- `tools\run_duel_checks.ps1`: sequência completa do confronto a 30, 60 e 144 FPS.
+- `tools\run_parry_fps.ps1` e `tools\run_hit_reach.ps1`: parry, postura e alcance iguais em qualquer FPS.
 - `tools\playtest.ps1`: playtest scriptado em janela, com FPS, esquivas medidas e capturas.
 - Resultados e limitações: `docs/playtest/marco-1-resultados.md`. Checklist para teste humano: `docs/playtest/marco-1-checklist.md`.
 

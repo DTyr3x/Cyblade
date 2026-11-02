@@ -91,3 +91,10 @@ Rastro, faíscas e clarão são feitos em código (malha dinâmica, `CPUParticle
 |---|---|---|
 | `assets/animations/katana/katana_deflexao.res` (0,30 s) | **Original do CYBLADE.** Poses por IK no Blender 4.5.10 (`tools/blender/katana_deflect_keys.py`), parte da pose de guarda, sobre o esqueleto do UAL (CC0) | Do projeto |
 | `assets/animations/katana/katana_contra.res` (0,37 s) | **Original do CYBLADE.** Parte da pose de saída da deflexão (`tools/blender/katana_counter_keys.py`). Regerar os dois: `tools/build_katana_strike.ps1` | Do projeto |
+
+## Vertical slice
+
+| Item | Origem | Licença |
+|---|---|---|
+| `assets/animations/katana/katana_cravada.res` (0,70 s) | **Original do CYBLADE.** Poses por IK no Blender 4.5.10 (`tools/blender/katana_finish_keys.py`), parte da pose de guarda. Regerar com `tools\build_katana_strike.ps1 -Clip cravada` | Proprietária do projeto |
+| Robô de combate, anel de postura, arena do confronto e sons `posture_lock`, `posture_break`, `finish_hit` | **Originais do CYBLADE.** Geometria, shader e áudio feitos em código | Proprietária do projeto |

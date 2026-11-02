@@ -45,6 +45,6 @@ O CYBLADE tem um combate **próprio**, de ninja cyberpunk: extremamente responsi
 | Etapa | Conteúdo | Situação |
 |---|---|---|
 | C1 | Parry, deflexão e contra-ataque de oportunidade, com inimigo de treino | C1.0 e C1.1 aprovados pelo PO |
-| C2 | Pressão de postura, quebra e finalização manual. Sem postura do jogador | Direção aprovada pelo PO. C2.0 em avaliação (`docs/c2-0-nucleo-postura.md`); C2.1 a C2.4 sem implementação |
+| C2 | Pressão de postura, quebra e finalização manual. Sem postura do jogador | Integrado ao vertical slice v0.1, em avaliação pelo PO (`docs/vertical-slice-v0.1.md`) |
 | C3 | Combate contra inimigo, Energia Neural, refinamento da cadeia de 3 golpes | Só planejamento |
 | C4 | Polimento de efeitos e áudio, legibilidade, curva de aprendizado, integração com a Forja de Combos | Só planejamento |

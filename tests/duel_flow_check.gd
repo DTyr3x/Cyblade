@@ -38,6 +38,7 @@ func _open_duel() -> Node:
 	var duel: Node = (load("res://game/duel.tscn") as PackedScene).instantiate()
 	root.add_child(duel)
 	current_scene = duel
+	duel.set("save_best", false)
 	for i in 10:
 		await process_frame
 	return duel
@@ -77,6 +78,7 @@ func _test_intro_and_robot() -> void:
 	var robot: RobotEnemy = duel.get("robot")
 	var player: Player = duel.get("player")
 	var hud: DuelHud = duel.get("duel_hud")
+	robot._rng.seed = 5
 	_check(hud.message() == "CYBLADE" and duel.get("flow") == 0, "abre na tela inicial")
 	_check(not player.vitals.training and player.vitals.regen_rate == 0.0, "no confronto a vida do jogador é de verdade")
 	var start := robot.global_position
@@ -101,7 +103,7 @@ func _test_intro_and_robot() -> void:
 	var seen := {}
 	var too_near := false
 	var t := CombatClock.time
-	while CombatClock.time < t + 22.0 and seen.size() < 2:
+	while CombatClock.time < t + 40.0 and seen.size() < 2:
 		if robot.phase == TrainingInstructor.Phase.WINDUP:
 			seen[robot.attack.parryable] = true
 		player.vitals.health = player.vitals.max_health

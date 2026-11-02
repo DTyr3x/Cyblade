@@ -54,6 +54,14 @@ Itens registrados para acompanhamento. Nenhum bloqueia o Pull Request do Marco 1
 
 | # | Pendência | Impacto | Onde tratar |
 |---|---|---|---|
-| 26 | **Alcance no limite depende do FPS de render** (anterior ao C2): a pose da lâmina muda por quadro de render. Até 2,0 m do alvo, Kesa e contra-corte acertam igual de 30 a 144 FPS. A 30 FPS o contra-corte erra a partir de 2,05 m (nos demais, acerta até 2,10 m); a 2,20 m o Kesa varia entre FPS. A postura herda a diferença, porque só conta golpes que acertam | Baixa a 60 FPS ou mais | Decisão do PO: corrigir muda a detecção de golpes aprovados. Reavaliar no C2.4 |
-| 27 | **Razão entre estilos no modelo subiu para 1,63** (agressivo com esquiva sobre parry, jogador médio) com a regra dos últimos 20%, pouco acima do limite proposto de 1,6. Modelo, não medição; nenhum valor foi ajustado | Média | C2.4, com jogo real |
+| 26 | **Resolvida no VS 0.1:** o acerto usa a trajetória calculada do clipe (`BladeTrack`), igual de 30 a 144 FPS. Faíscas podem ficar até ~0,3 m da lâmina vista na tela em golpes rápidos | - | - |
+| 27 | **Equilíbrio entre estilos só medido com bot:** parry ~31 s, esquiva ~34 s, só atacar perde. Falta validação humana | Média | Playtest do VS 0.1 |
 | 28 | **Execução sem resultados (17, 25):** não ocorreu nas 9 execuções do C2.0, uma por vez. O playtest agora grava `m1_playtest_progresso.txt` por trecho | Baixa | Ler esse arquivo se voltar a ocorrer |
+
+## Pendências abertas pelo vertical slice
+
+| # | Pendência | Impacto | Onde tratar |
+|---|---|---|---|
+| 29 | **Dificuldade do robô sem validação humana** (1.500 de vida, jogador com 120, sem regeneração) | Alta | Playtest do VS 0.1 |
+| 30 | **Robô sem animação de golpe própria e sem desvio de obstáculos** (arena sem obstáculos) | Média | Próximos inimigos |
+| 31 | **Melhor tempo sem limpeza:** fica em `user://melhor_tempo.cfg`, sem opção no jogo para zerar | Baixa | Marco de interface |

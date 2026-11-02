@@ -18,6 +18,8 @@ var fight_time := 0.0
 var parries := 0
 var evades := 0
 var damage_taken := 0.0
+## Testes e demonstrações não entram no melhor tempo.
+var save_best := true
 
 
 func _ready() -> void:
@@ -106,6 +108,7 @@ func _save_best(seconds: float) -> float:
 	var cfg := ConfigFile.new()
 	cfg.load(BEST_FILE)
 	var best := minf(float(cfg.get_value("confronto", "melhor_tempo", INF)), seconds)
-	cfg.set_value("confronto", "melhor_tempo", best)
-	cfg.save(BEST_FILE)
+	if save_best:
+		cfg.set_value("confronto", "melhor_tempo", best)
+		cfg.save(BEST_FILE)
 	return best
