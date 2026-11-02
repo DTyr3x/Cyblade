@@ -100,6 +100,8 @@ func _register_hit(target: Node, point: Vector3, data: StrikeData) -> void:
 		"direction": from_dir.normalized(),
 		"hitstop": data.hitstop,
 		"camera_shake": data.camera_shake,
+		"posture": data.posture_pressure,
+		"posture_locks": data.posture_locks,
 	}
 	_push_log({"event": "acerto", "strike": String(data.id), "swing": controller.swing_id, "damage": data.damage})
 	controller.start_hitstop(data.hitstop)

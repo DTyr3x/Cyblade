@@ -30,6 +30,8 @@ damage = 30.0
 hitstop = 0.09
 knockback = 0.5
 reaction = 1
+posture_pressure = 12.0
+posture_locks = true
 
 [sub_resource type="Resource" id="Resource_nmppa"]
 script = ExtResource("2_2uwio")
@@ -49,6 +51,7 @@ advance_start = 0.05
 advance_end = 0.25
 turn_lock = 0.1
 hitstop = 0.06
+posture_pressure = 3.0
 
 [sub_resource type="Resource" id="Resource_fqn5w"]
 script = ExtResource("2_2uwio")
@@ -72,6 +75,7 @@ advance_end = 0.2
 turn_lock = 0.08333333333333333
 hitstop = 0.06
 reaction = 1
+posture_pressure = 3.0
 
 [sub_resource type="Resource" id="Resource_bybfv"]
 script = ExtResource("2_2uwio")
@@ -98,6 +102,7 @@ hitstop = 0.1
 knockback = 0.8
 reaction = 2
 camera_shake = 0.03
+posture_pressure = 7.0
 
 [resource]
 script = ExtResource("3_0fq5a")

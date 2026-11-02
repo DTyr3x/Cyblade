@@ -34,8 +34,14 @@ var phase_time := 0.0
 var swing := 0
 ## Instante (relógio de combate) do próximo contato agendado; -1 se não há preparação em curso.
 var next_contact_time := -1.0
-## Contadores do C1 (efeito no C2): pressão de postura sofrida.
-var posture_pressure := 0.0
+## Perfil de postura (vazio = padrão em game/data/postura_instrutor.tres).
+@export var posture_data: PostureData
+## Núcleo de pressão de postura (C2.0).
+var posture: PostureController
+## Contador do C1: agora lido do núcleo, para não existirem duas contas.
+var posture_pressure: float:
+	get:
+		return posture.parry_pressure_total
 var results: Array[Dictionary] = []
 
 var target: Node3D
@@ -54,6 +60,9 @@ func _ready() -> void:
 	if attack == null:
 		attack = EnemyAttackData.load_default()
 	super._ready()
+	posture = PostureController.new(posture_data)
+	posture.name = "Postura"
+	add_child(posture)
 	add_to_group(&"inimigo")
 
 
@@ -144,6 +153,12 @@ func blade_mid() -> Vector3:
 	return _arm.global_transform * Vector3(0, -0.95, 0)
 
 
+## Um golpe que acertou: reações do boneco e pressão de postura.
+func receive_hit(info: Dictionary) -> void:
+	super.receive_hit(info)
+	posture.apply_hit(CombatClock.time, float(info.get("posture", 0.0)), bool(info.get("posture_locks", false)), int(info["swing"]))
+
+
 ## Congela o ciclo e o corpo (hitstop local).
 func freeze(duration: float) -> void:
 	_hold = maxf(_hold, duration)
@@ -152,6 +167,7 @@ func freeze(duration: float) -> void:
 
 func _physics_process(delta: float) -> void:
 	super._physics_process(delta)
+	posture.update(CombatClock.time)
 	if _hold > 0.0:
 		_hold = maxf(_hold - delta, 0.0)
 		_update_visual(0.0)
@@ -209,7 +225,7 @@ func _try_contact(late: float) -> void:
 	results.append(info)
 	contact.emit(info)
 	if info.get("result", -1) == DefenseController.Result.PERFECT:
-		posture_pressure += float(info.get("posture_pressure", 0.0))
+		posture.apply_parry(t, float(info.get("posture_pressure", 0.0)), swing)
 		_enter(Phase.OFF_BALANCE, 0.0)
 		_thrown = 1.0
 		_lean_vel += Vector2(-4.5, 0.0)

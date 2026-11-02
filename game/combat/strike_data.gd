@@ -59,6 +59,12 @@ enum Reaction { LIGHT_LEFT, LIGHT_RIGHT, HEAVY }
 ## Tremor de câmera (m) no acerto. 0 nos golpes comuns; só o golpe final tem um valor discreto.
 @export var camera_shake := 0.0
 
+@export_group("Postura")
+## Pressão de postura que este golpe causa ao ACERTAR (C2). Mora no golpe, para combos forjados a herdarem.
+@export var posture_pressure := 0.0
+## O acerto crava a pressão acumulada (contra-corte).
+@export var posture_locks := false
+
 @export_group("Alcance")
 ## Lâmina da katana: segmento de `blade_from` a `blade_to` ao longo do eixo da arma (m a partir do punho)
 ## e raio de tolerância do acerto.

@@ -61,6 +61,7 @@ static func katana_default() -> ComboSet:
 	s1.reaction = StrikeData.Reaction.LIGHT_LEFT
 	s1.damage = 10.0
 	s1.knockback = 0.15
+	s1.posture_pressure = 3.0
 
 	# Golpe 2 (H2.2): "Kiriage de retorno", animação autoral que NASCE da pose do Kesa no quadro 17
 	# (tools/blender/katana_kiriage_keys.py). Quadros de 60 Hz: preparação 0-7, contato 8-13,
@@ -88,6 +89,7 @@ static func katana_default() -> ComboSet:
 	s2.damage = 10.0
 	s2.hitstop = 0.06
 	s2.knockback = 0.15
+	s2.posture_pressure = 3.0
 
 	# Golpe 3 (H2.3): "Tsuki de passo duplo", finalizador autoral que NASCE da pose do Kiriage no quadro 17
 	# (tools/blender/katana_tsuki_keys.py). Quadros de 60 Hz: coil 0-6, passo 1 6-13, passo 2 e
@@ -116,6 +118,7 @@ static func katana_default() -> ComboSet:
 	s3.knockback = 0.8
 	s3.reaction = StrikeData.Reaction.HEAVY
 	s3.camera_shake = 0.03
+	s3.posture_pressure = 7.0   # provisório: o Tsuki ainda não foi aprovado
 
 	set.strikes = [s1, s2, s3]
 	set.counter_strike = counter_default()
@@ -148,4 +151,6 @@ static func counter_default() -> StrikeData:
 	c.hitstop = 0.09
 	c.knockback = 0.5
 	c.reaction = StrikeData.Reaction.LIGHT_RIGHT
+	c.posture_pressure = 12.0
+	c.posture_locks = true
 	return c
