@@ -62,6 +62,7 @@ func _run() -> void:
 
 func _segment(seg_name: String, _seconds: float, body: Callable, report := true) -> void:
 	_watch_segment = seg_name
+	_mark_progress(seg_name)
 	_stats.reset()
 	_shot_ranges.clear()
 	var t0 := Time.get_ticks_usec()
@@ -69,6 +70,18 @@ func _segment(seg_name: String, _seconds: float, body: Callable, report := true)
 	if report:
 		_results["segments"][seg_name] = _segment_summary((Time.get_ticks_usec() - t0) / 1000000.0)
 	print("[playtest] trecho '%s' concluído" % seg_name)
+
+
+## Diagnóstico das pendências 17 e 25: grava cada trecho ao começar. Uma execução que termina sem resultados
+## deixa aqui até onde chegou. O arquivo é aberto e fechado a cada trecho para sobreviver a um encerramento.
+func _mark_progress(seg_name: String) -> void:
+	var path := _out_dir.path_join("m1_playtest_progresso.txt")
+	var f := FileAccess.open(path, FileAccess.READ_WRITE if FileAccess.file_exists(path) else FileAccess.WRITE)
+	if f == null:
+		return
+	f.seek_end()
+	f.store_line("%s %s" % [Time.get_datetime_string_from_system(), seg_name])
+	f.close()
 
 
 ## Resume o trecho SEM os quadros afetados pela gravação de capturas (salvar PNG 1080p custa
@@ -278,6 +291,7 @@ func _defense() -> void:
 	ins.enabled = false
 	_results["defesa"] = counts
 	_results["contra_ataques"] = {"tentados": counters, "oportunidades_usadas": _player.defense.opportunities_used, "acertos_instrutor": ins.hits.size()}
+	_results["postura"] = {"atual": ins.posture.current, "cravada": ins.posture.locked, "maximo": ins.posture.max_posture(), "vezes_cheia": ins.posture.times_full, "eventos_recusados": ins.posture.rejected_events}
 
 
 func _preset_run(index: int, label: String) -> void:
