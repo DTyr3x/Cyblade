@@ -12,6 +12,9 @@ signal swing_finished(swing_id: int, hits: int)
 const HURTBOX_GROUP := &"hurtbox"
 ## Passos de varredura entre dois instantes de amostragem (lâmina rápida não atravessa o alvo).
 const SWEEP_STEPS := 5
+## A trajetória do clipe alcança um pouco menos que a pose na tela (mistura e atraso de quadro). Esta folga
+## mantém o alcance aprovado a 60 FPS, agora igual em qualquer FPS.
+const REACH_MARGIN := 0.11
 
 var controller: CombatController
 var visual: HumanoidVisual
@@ -60,7 +63,7 @@ func _physics_process(_delta: float) -> void:
 	if controller.in_hitstop():
 		return
 	var data := controller.current
-	var seg := visual.blade_segment(data.blade_from, data.blade_to)
+	var seg := visual.strike_blade_segment(data, controller.clip_time())
 	if _prev.is_empty():
 		_prev = seg
 	for step in range(1, SWEEP_STEPS + 1):
@@ -74,7 +77,7 @@ func _physics_process(_delta: float) -> void:
 			var tid := target.get_instance_id()
 			if done.has(tid):
 				continue
-			var point: Vector3 = target.segment_hit(a, b, data.hit_radius)
+			var point: Vector3 = target.segment_hit(a, b, data.hit_radius + REACH_MARGIN)
 			if point.is_finite():
 				done[tid] = true
 				_hit_ids[controller.swing_id] = done

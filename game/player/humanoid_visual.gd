@@ -83,6 +83,8 @@ var _has_deflect := false
 var _deflect_left := 0.0
 var _deflect_elapsed := -1.0
 var _sel_guard: AnimationNodeTransition
+## Trajetória da lâmina por golpe, para o acerto não depender do FPS de render.
+var _blade_tracks := {}
 var _freeze_left := 0.0
 var _armor: StandardMaterial3D
 var _body_flash := 0.0
@@ -321,6 +323,7 @@ func setup_strikes(combo: ComboSet) -> void:
 			lib.remove_animation(cname)
 		lib.add_animation(cname, cclip)
 		_strike_clips.append(cname)
+	_bake_blade_tracks(combo)
 	# Pose de guarda (C1), autoral: tools/blender/katana_guard_keys.py.
 	if ResourceLoader.exists(GUARD_CLIP_PATH):
 		var guard := load(GUARD_CLIP_PATH) as Animation
@@ -338,6 +341,18 @@ func setup_strikes(combo: ComboSet) -> void:
 		lib.add_animation(DEFLECT_CLIP_NAME, defl)
 		_has_deflect = true
 	_setup_tree(combo)
+
+
+func _bake_blade_tracks(combo: ComboSet) -> void:
+	_blade_tracks.clear()
+	var to_body := _player.global_transform.affine_inverse() * skeleton.global_transform
+	var hand := skeleton.find_bone("hand_r")
+	var strikes: Array[StrikeData] = combo.strikes.duplicate()
+	if combo.counter_strike != null:
+		strikes.append(combo.counter_strike)
+	for i in strikes.size():
+		var grip := Transform3D(STRIKE_GRIP if strikes[i].authored_grip else Basis.IDENTITY, katana.position)
+		_blade_tracks[strikes[i]] = BladeTrack.bake(anim_player.get_animation(_strike_clips[i]), skeleton, hand, to_body, grip)
 
 
 ## Inicia o clipe do golpe `index` (reinicia se já estava tocando outro).
@@ -394,6 +409,14 @@ func blade_segment(from := Katana.BLADE_START, to := Katana.BLADE_END) -> Array[
 	var axis := t.basis.y.normalized()
 	var scale := t.basis.y.length()
 	return [t.origin + axis * from * scale, t.origin + axis * to * scale]
+
+
+## Segmento da lâmina para o ACERTO: vem do clipe, no tempo `clip_time`, e não da pose na tela.
+func strike_blade_segment(data: StrikeData, clip_time: float) -> Array[Vector3]:
+	var track: BladeTrack = _blade_tracks.get(data)
+	if track == null:
+		return blade_segment(data.blade_from, data.blade_to)
+	return track.segment(clip_time, data.blade_from, data.blade_to, _player.global_transform)
 
 
 # --- Defesa (C1) -----------------------------------------------------------------------------
