@@ -85,6 +85,14 @@ func _physics_process(_delta: float) -> void:
 	_prev = seg
 
 
+## Contato garantido da finalização: o alvo foi escolhido e reservado quando o golpe começou.
+func force_hit(target: Node, data: StrikeData) -> void:
+	var done: Dictionary = _hit_ids.get(controller.swing_id, {})
+	done[target.get_instance_id()] = true
+	_hit_ids[controller.swing_id] = done
+	_register_hit(target, visual.strike_blade_segment(data, controller.clip_time())[1], data)
+
+
 func _register_hit(target: Node, point: Vector3, data: StrikeData) -> void:
 	_hits_in_swing += 1
 	total_hits += 1
@@ -105,6 +113,7 @@ func _register_hit(target: Node, point: Vector3, data: StrikeData) -> void:
 		"camera_shake": data.camera_shake,
 		"posture": data.posture_pressure,
 		"posture_locks": data.posture_locks,
+		"finisher": controller.is_finisher,
 	}
 	_push_log({"event": "acerto", "strike": String(data.id), "swing": controller.swing_id, "damage": data.damage})
 	controller.start_hitstop(data.hitstop)

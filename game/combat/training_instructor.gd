@@ -5,6 +5,8 @@ extends TrainingDummy
 ##   ESPERA ─► PREPARAÇÃO (corpo acende, braço-lâmina sobe) ─► GOLPE (contato) ─► RECUPERAÇÃO ─► ESPERA
 ##                       sinal didático: brilho branco + "tic" `cue_lead` s antes do contato
 ##   parry perfeito ─► DESEQUILÍBRIO (recua, braço jogado para cima) ─► RECUPERAÇÃO
+##   postura cheia ─► QUEBRADO (joelho no chão, visor apagado) ─► RECUPERAÇÃO
+##   Cravada ─► CAÍDO ─► RECUPERAÇÃO
 ##
 ## Herda do boneco a hurtbox (os golpes do jogador o acertam) e as molas de reação. Corpo procedural.
 ## Só ataca com o jogador dentro de `engage_range`. Tempo do ciclo em segundos de simulação.
@@ -12,13 +14,19 @@ extends TrainingDummy
 signal phase_changed(phase: int)
 signal cue
 signal contact(info: Dictionary)
+## Esquiva justa reconhecida (dentro da ameaça, no tempo certo).
+signal evade_credited
 
-enum Phase { WAIT, WINDUP, STRIKE, RECOVERY, OFF_BALANCE }
+enum Phase { WAIT, WINDUP, STRIKE, RECOVERY, OFF_BALANCE, BROKEN, DOWN }
 
 const ARM_REST := -20.0
 const ARM_RAISED := -200.0
 const ARM_CONTACT := -90.0
 const ARM_END := -40.0
+const ARM_LIMP := -6.0
+## Pose quebrada: desce sobre o joelho, tronco à frente.
+const KNEEL_DROP := 0.38
+const KNEEL_TILT := 0.45
 
 @export var attack: EnemyAttackData
 ## Intervalo de espera entre o fim de um ataque e a próxima preparação (s).
@@ -43,6 +51,8 @@ var posture_pressure: float:
 	get:
 		return posture.parry_pressure_total
 var results: Array[Dictionary] = []
+## Derrotas por Cravada.
+var defeats := 0
 
 var target: Node3D
 var _arm: Node3D
@@ -54,6 +64,8 @@ var _hold := 0.0
 var _glint := 0.0
 var _arm_angle := ARM_REST
 var _thrown := 0.0
+var _kneel := 0.0
+var _wait_override := -1.0
 
 
 func _ready() -> void:
@@ -63,6 +75,9 @@ func _ready() -> void:
 	posture = PostureController.new(posture_data)
 	posture.name = "Postura"
 	add_child(posture)
+	posture.broken.connect(_on_broken)
+	posture.recovered.connect(_on_recovered)
+	posture.finished.connect(_on_finished)
 	add_to_group(&"inimigo")
 
 
@@ -156,7 +171,11 @@ func blade_mid() -> Vector3:
 ## Um golpe que acertou: reações do boneco e pressão de postura.
 func receive_hit(info: Dictionary) -> void:
 	super.receive_hit(info)
-	posture.apply_hit(CombatClock.time, float(info.get("posture", 0.0)), bool(info.get("posture_locks", false)), int(info["swing"]))
+	var t := CombatClock.time
+	if info.get("finisher", false):
+		posture.complete_finish(t)
+	else:
+		posture.apply_hit(t, float(info.get("posture", 0.0)), bool(info.get("posture_locks", false)), int(info["swing"]))
 
 
 ## Congela o ciclo e o corpo (hitstop local).
@@ -178,13 +197,7 @@ func _physics_process(delta: float) -> void:
 	phase_time += delta
 	match phase:
 		Phase.WAIT:
-			_face_target(delta)
-			if phase_time >= interval and _target_in_range(engage_range):
-				_enter(Phase.WINDUP)
-				_cue_done = false
-				_resolved = false
-				swing += 1
-				next_contact_time = CombatClock.time + attack.time_to_contact()
+			_tick_wait(delta)
 		Phase.WINDUP:
 			var to_cue := attack.time_to_contact() - attack.cue_lead
 			if phase_time < to_cue:
@@ -196,21 +209,91 @@ func _physics_process(delta: float) -> void:
 			if phase_time >= attack.windup:
 				_enter(Phase.STRIKE, phase_time - attack.windup)
 		Phase.STRIKE:
+			_tick_strike_motion(delta)
 			if not _resolved and phase_time >= attack.active_start:
 				_try_contact(phase_time - attack.active_start)
 			if phase_time >= attack.active_end and not _resolved:
 				_resolved = true
 				results.append({"swing": swing, "result": "fora de alcance"})
+				_credit_evade(CombatClock.time - (phase_time - attack.active_start))
 			if phase_time >= attack.strike_time and phase == Phase.STRIKE:
-				_enter(Phase.RECOVERY, phase_time - attack.strike_time)
+				_on_strike_done(phase_time - attack.strike_time)
 		Phase.RECOVERY:
 			if phase_time >= attack.recovery:
 				_enter(Phase.WAIT, 0.0)
 				next_contact_time = -1.0
+				_on_recovery_done()
 		Phase.OFF_BALANCE:
 			if phase_time >= attack.off_balance:
 				_enter(Phase.RECOVERY, 0.0)
+		Phase.DOWN:
+			if phase_time >= posture.data.finish_down_time:
+				_enter(Phase.RECOVERY, 0.0)
 	_update_visual(delta)
+
+
+## Espera entre ataques. O robô troca por aproximação e escolha de golpe.
+func _tick_wait(delta: float) -> void:
+	_face_target(delta)
+	var wait_for := _wait_override if _wait_override >= 0.0 else interval
+	if phase_time >= wait_for and _target_in_range(engage_range):
+		_wait_override = -1.0
+		_begin_attack()
+
+
+func _begin_attack() -> void:
+	_enter(Phase.WINDUP)
+	_cue_done = false
+	_resolved = false
+	swing += 1
+	next_contact_time = CombatClock.time + attack.time_to_contact()
+
+
+## Movimento do corpo durante o golpe (investida do robô).
+func _tick_strike_motion(_delta: float) -> void:
+	pass
+
+
+## Fim do golpe: encadeia o próximo da sequência ou recupera.
+func _on_strike_done(carry: float) -> void:
+	if attack.follow_up != null:
+		attack = attack.follow_up
+		_begin_attack()
+		phase_time = carry
+	else:
+		_enter(Phase.RECOVERY, carry)
+
+
+func _on_recovery_done() -> void:
+	pass
+
+
+## Esquiva justa: o inimigo sabe que o golpe era uma ameaça real, o jogador só diz quando esquivou.
+func _credit_evade(t: float) -> void:
+	if target != null and target.has_method("fair_evade") and target.fair_evade(attack, self, t, posture.data.evade_window):
+		posture.apply_evade(t, swing)
+		posture.expose(t + posture.data.evade_exposed_time)
+		evade_credited.emit()
+
+
+func _on_broken(_by_precision: bool) -> void:
+	_enter(Phase.BROKEN)
+	next_contact_time = -1.0
+	_resolved = true
+	var h := posture.data.break_hitstop
+	freeze(h)
+	if target != null and target.has_method("on_enemy_broken"):
+		target.on_enemy_broken(h, posture.data.break_neural_energy)
+
+
+func _on_recovered() -> void:
+	_wait_override = posture.data.post_break_interval
+	_enter(Phase.RECOVERY, 0.0)
+
+
+func _on_finished() -> void:
+	defeats += 1
+	_enter(Phase.DOWN)
 
 
 ## Testa o contato; `late` = quanto este passo passou do instante exato do contato.
@@ -224,9 +307,13 @@ func _try_contact(late: float) -> void:
 		info.merge(target.receive_enemy_attack(attack, t, self), true)
 	results.append(info)
 	contact.emit(info)
+	if info.get("evaded", false):
+		_credit_evade(t)
 	if info.get("result", -1) == DefenseController.Result.PERFECT:
+		posture.expose(t + attack.off_balance)
 		posture.apply_parry(t, float(info.get("posture_pressure", 0.0)), swing)
-		_enter(Phase.OFF_BALANCE, 0.0)
+		if phase != Phase.BROKEN:
+			_enter(Phase.OFF_BALANCE, 0.0)
 		_thrown = 1.0
 		_lean_vel += Vector2(-4.5, 0.0)
 		_flash = 0.6
@@ -286,6 +373,8 @@ func _update_visual(delta: float) -> void:
 			target_angle = lerpf(ARM_END, ARM_REST, clampf(phase_time / attack.recovery, 0.0, 1.0))
 		Phase.OFF_BALANCE:
 			target_angle = -170.0
+		Phase.BROKEN, Phase.DOWN:
+			target_angle = ARM_LIMP
 	if phase == Phase.STRIKE or phase == Phase.WINDUP:
 		_arm_angle = target_angle
 	else:
@@ -299,4 +388,10 @@ func _update_visual(delta: float) -> void:
 	_visor_mat.emission = Color(0.1, 0.9, 1.0).lerp(Color(1, 1, 1), 1.0 if open else 0.0)
 	_visor_mat.albedo_color = _visor_mat.emission
 	_visor_mat.emission_energy_multiplier = 5.0 if open else 2.0
+	var down := phase == Phase.BROKEN or phase == Phase.DOWN
+	if down:
+		_visor_mat.emission_energy_multiplier = 0.0
 	_mat.emission_energy_multiplier = maxf(glow, _flash * 0.9)
+	_kneel = lerpf(_kneel, 1.0 if down else 0.0, MotionMath.smooth_alpha(delta, 0.05 if down else 0.14))
+	_pivot.position.y = _slide.y - KNEEL_DROP * _kneel
+	_pivot.rotation.x = _lean.x + KNEEL_TILT * _kneel

@@ -5,7 +5,8 @@ extends CharacterBody3D
 ## Estados: MOVE -> DODGE (deslocamento) -> RECOVERY (sem controle) -> MOVE; MOVE -> ATTACK (cadeia
 ## de golpes, ver CombatController) -> MOVE ou DODGE (cancelamento); MOVE -> GUARD (defesa e parry, ver
 ## DefenseController) -> MOVE; golpe inimigo recebido -> STAGGER (reação curta, a esquiva cancela).
-## Prioridade no mesmo passo: esquiva > defesa > ataque.
+## Vida zerada no confronto -> DOWN (fim da luta).
+## Prioridade no mesmo passo: esquiva > defesa > finalização > ataque.
 ## Física em 120 Hz; a lógica usa só `delta`, nunca a taxa de quadros de render.
 
 signal state_changed(new_state: int)
@@ -14,8 +15,10 @@ signal dodge_finished
 ## Golpe inimigo resolvido contra o jogador (parry, defesa ou golpe recebido). `info` traz resultado,
 ## dano, desvio de tempo, ponto de contato e a origem.
 signal attacked(info: Dictionary)
+## A Cravada acertou `target`.
+signal finish_landed(target: Node3D)
 
-enum State { MOVE, DODGE, RECOVERY, ATTACK, GUARD, STAGGER }
+enum State { MOVE, DODGE, RECOVERY, ATTACK, GUARD, STAGGER, DOWN }
 
 @export var tuning: PlayerTuning
 
@@ -44,6 +47,15 @@ const SAME_INSTANT := 0.02
 var _attack_ignore_until := -1.0
 ## Hitstop local do jogador (relógio de combate): congela corpo e buffers, nenhum aperto se perde.
 var _freeze_until := -1.0
+## Quanto tempo o aperto de finalizar fica guardado (s).
+const FINISH_BUFFER := 0.12
+## Folga do alcance na esquiva justa: o golpe alcançaria o jogador por pouco.
+const EVADE_MARGIN := 0.3
+var _finish_buffer := 0.0
+var _finish_target: TrainingInstructor
+## Início da última esquiva (esquiva justa).
+var last_dodge_t := -INF
+var last_dodge_pos := Vector3.ZERO
 var _push_vel := Vector3.ZERO
 var _push_left := 0.0
 
@@ -61,6 +73,7 @@ func _ready() -> void:
 	visual.setup_strikes(combat.combo)
 	combat.strike_started.connect(_on_strike_started)
 	combat.strike_ended.connect(_on_strike_ended)
+	combat.strike_phase_changed.connect(_on_strike_phase)
 	hit_detector = HitDetector.new(combat, visual)
 	hit_detector.name = "HitDetector"
 	add_child(hit_detector)
@@ -70,6 +83,7 @@ func _ready() -> void:
 	vitals = CombatVitals.new()
 	vitals.name = "Vitals"
 	add_child(vitals)
+	vitals.defeated.connect(_on_defeated)
 	add_to_group(&"jogador")
 
 
@@ -78,6 +92,8 @@ func horizontal_velocity() -> Vector3:
 
 
 func is_invulnerable() -> bool:
+	if combat.is_finisher and combat.is_attacking() and combat.clip_time() <= combat.current.active_end + 0.1:
+		return true
 	return state == State.DODGE \
 		and state_time >= tuning.dodge_iframe_start \
 		and state_time <= tuning.dodge_iframe_end
@@ -97,6 +113,8 @@ func _physics_process(delta: float) -> void:
 			_dodge_buffer = tuning.dodge_buffer_time
 		if Input.is_action_just_pressed("attack"):
 			combat.press_attack()
+		if Input.is_action_just_pressed("finish"):
+			_finish_buffer = FINISH_BUFFER
 		if defend_pressed:
 			_defend_buffer = defense.data.input_buffer
 		if not defend_held and defense.guarding:
@@ -115,6 +133,10 @@ func _physics_process(delta: float) -> void:
 		_defend_buffer = maxf(_defend_buffer - delta, 0.0)
 	if not defend_held and defense.guarding:
 		defense.release(now)
+	if Input.is_action_just_pressed("finish"):
+		_finish_buffer = FINISH_BUFFER
+	else:
+		_finish_buffer = maxf(_finish_buffer - delta, 0.0)
 	if Input.is_action_just_pressed("attack") and now > _attack_ignore_until:
 		combat.press_attack()
 	if state != State.ATTACK:
@@ -136,6 +158,8 @@ func _physics_process(delta: float) -> void:
 			_tick_guard(delta)
 		State.STAGGER:
 			_tick_stagger(delta)
+		State.DOWN:
+			_tick_down(delta)
 
 	if is_on_floor():
 		velocity.y = 0.0
@@ -169,6 +193,9 @@ func _tick_move(delta: float) -> void:
 	if _try_start_defense():
 		_tick_guard(delta)
 		return
+	if _try_start_finish():
+		_tick_attack(delta)
+		return
 	if _try_start_attack():
 		_tick_attack(delta)
 		return
@@ -198,6 +225,8 @@ func _start_dodge(input_dir: Vector3) -> void:
 		_dodge_exit_fraction = clampf(tuning.dodge_exit_speed_ratio * tuning.max_speed * tuning.dodge_duration / tuning.dodge_distance, 0.0, 1.0)
 	rotation.y = atan2(-dodge_direction.x, -dodge_direction.z)
 	_dodge_buffer = 0.0
+	last_dodge_t = CombatClock.time
+	last_dodge_pos = global_position
 	_enter(State.DODGE, 0.0)
 	dodge_started.emit(dodge_direction)
 
@@ -227,6 +256,8 @@ func _tick_recovery(delta: float) -> void:
 		_locomote(_input_direction(), delta)
 	state_time += delta
 	if _try_start_defense():
+		return
+	if _try_start_finish():
 		return
 	if _try_start_attack():
 		return
@@ -261,13 +292,17 @@ func _try_start_attack() -> bool:
 
 func _on_strike_started(data: StrikeData, index: int, _swing: int) -> void:
 	visual.play_strike(data, index, combat.chained_from, combat.chained_from_clip_time)
-	_aim_for_strike(data)
+	if not combat.is_finisher:
+		_aim_for_strike(data)
 
 
 func _on_strike_ended(_data: StrikeData, _completed: bool) -> void:
 	# Num encadeamento o corpo não volta à locomoção entre os dois golpes: o próximo `play_strike` assume.
 	if combat.chaining:
 		return
+	if _finish_target != null:
+		_finish_target.posture.cancel_finish(CombatClock.time)
+		_finish_target = null
 	visual.end_strike()
 
 
@@ -301,6 +336,100 @@ func _assist_direction() -> Vector3:
 	return best
 
 
+# --- Finalização (Cravada) --------------------------------------------------------------
+
+## Começa a Cravada se o botão foi apertado e há um inimigo quebrado ao alcance. Fora disso não faz nada.
+func _try_start_finish() -> bool:
+	if _finish_buffer <= 0.0 or _dodge_buffer > 0.0:
+		return false
+	var target := _find_finish_target()
+	if target == null:
+		return false
+	_finish_buffer = 0.0
+	combat.consume_buffer()
+	if combat.is_attacking():
+		combat.cancel()
+	var to := target.global_position - global_position
+	to.y = 0.0
+	rotation.y = atan2(-to.x, -to.z)
+	if not combat.start_finish(maxf(to.length() - target.posture.data.finish_stop_distance, 0.0)):
+		return false
+	target.posture.begin_finish(CombatClock.time)
+	_finish_target = target
+	_enter(State.ATTACK, 0.0)
+	return true
+
+
+## Inimigo quebrado mais próximo, dentro do alcance e do arco em torno da direção pressionada (ou da frente).
+func _find_finish_target() -> TrainingInstructor:
+	var now := CombatClock.time
+	var ref := _input_direction()
+	if ref.length() < 0.1:
+		ref = -global_transform.basis.z
+	var best: TrainingInstructor = null
+	var best_d := INF
+	for e: Node in get_tree().get_nodes_in_group(&"inimigo"):
+		var enemy := e as TrainingInstructor
+		if enemy == null or not enemy.posture.can_finish(now):
+			continue
+		var to := enemy.global_position - global_position
+		to.y = 0.0
+		var d := to.length()
+		if d > enemy.posture.data.finish_range or d >= best_d:
+			continue
+		if d > 0.01 and rad_to_deg(ref.normalized().angle_to(to.normalized())) > enemy.posture.data.finish_arc_deg * 0.5:
+			continue
+		best = enemy
+		best_d = d
+	return best
+
+
+func _on_strike_phase(phase: int) -> void:
+	if phase == CombatController.Phase.ACTIVE and combat.is_finisher and _finish_target != null:
+		var target := _finish_target
+		_finish_target = null
+		hit_detector.force_hit(target, combat.current)
+		vitals.add_neural_energy(target.posture.data.finish_neural_energy)
+		finish_landed.emit(target)
+
+
+## O inimigo acabou de quebrar: o instante pesa nos dois (hitstop) e a Energia Neural conta.
+func on_enemy_broken(hitstop: float, neural_energy: float) -> void:
+	vitals.add_neural_energy(neural_energy)
+	if state == State.ATTACK:
+		combat.start_hitstop(hitstop)
+	else:
+		_freeze_until = maxf(_freeze_until, CombatClock.time + hitstop)
+		visual.freeze(hitstop)
+
+
+## A esquiva que começou há até `window` s, com o jogador dentro do alcance e do arco do golpe, conta como
+## esquiva justa. Fugir de longe ou esquivar cedo demais não conta.
+func fair_evade(attack: EnemyAttackData, source: Node3D, t: float, window: float) -> bool:
+	var since := t - last_dodge_t
+	if since < 0.0 or since > window:
+		return false
+	var to := last_dodge_pos - source.global_position
+	to.y = 0.0
+	if to.length() > attack.attack_range + EVADE_MARGIN:
+		return false
+	var fwd := source.global_transform.basis.z
+	fwd.y = 0.0
+	return rad_to_deg(fwd.normalized().angle_to(to.normalized())) <= attack.arc_deg * 0.5 + 10.0
+
+
+func _on_defeated() -> void:
+	combat.cancel()
+	_enter(State.DOWN, 0.0)
+	visual.play_defeat()
+
+
+func _tick_down(delta: float) -> void:
+	var h := MotionMath.approach_velocity(horizontal_velocity(), Vector3.ZERO, tuning.accel(), tuning.decel(), 1.0, delta)
+	velocity.x = h.x
+	velocity.z = h.z
+
+
 func _tick_attack(delta: float) -> void:
 	var dir := _input_direction()
 	# Cancelamento por esquiva: vale assim que a janela do golpe abre.
@@ -314,6 +443,8 @@ func _tick_attack(delta: float) -> void:
 		combat.cancel()
 		_try_start_defense()
 		_tick_guard(delta)
+		return
+	if _finish_buffer > 0.0 and not combat.is_finisher and combat.dodge_cancel_open() and _try_start_finish():
 		return
 	# Encadeamento: ataque guardado + janela aberta.
 	if combat.has_buffered_attack() and combat.try_start(true):
@@ -384,6 +515,9 @@ func _tick_guard(delta: float) -> void:
 		_defend_buffer = 0.0
 		defense.press(now)
 	if not defense.in_block_recovery(now):
+		if _try_start_finish():
+			_tick_attack(delta)
+			return
 		if _try_start_attack():
 			_tick_attack(delta)
 			return
@@ -440,6 +574,8 @@ func _nearest_enemy_direction(max_dist: float) -> Vector3:
 ## Golpe inimigo chegando ao jogador no instante `t` (relógio de combate). Decide parry, defesa ou
 ## golpe recebido e aplica as consequências. Devolve o resultado para o atacante.
 func receive_enemy_attack(attack: EnemyAttackData, t: float, source: Node3D) -> Dictionary:
+	if state == State.DOWN:
+		return {"result": -1, "hitstop": 0.0}
 	if is_invulnerable():
 		return {"result": -1, "evaded": true, "hitstop": 0.0}
 	var away := global_position - source.global_position
@@ -466,15 +602,15 @@ func receive_enemy_attack(attack: EnemyAttackData, t: float, source: Node3D) -> 
 			vitals.damage(float(info["damage"]))
 			_push_vel = away * (d.block_pushback / maxf(d.block_pushback_time, 0.01))
 			_push_left = d.block_pushback_time
-			if state != State.GUARD:
+			if state != State.GUARD and state != State.DOWN:
 				_enter(State.GUARD, 0.0)
 		_:
-			vitals.damage(float(info["damage"]))
 			if state == State.ATTACK:
 				combat.cancel()
 			_push_vel = away * (d.hit_knockback / 0.12)
 			_push_left = 0.12
 			_enter(State.STAGGER, 0.0)
+			vitals.damage(float(info["damage"]))
 	if hitstop > 0.0:
 		_freeze_until = CombatClock.time + hitstop
 		visual.freeze(hitstop)

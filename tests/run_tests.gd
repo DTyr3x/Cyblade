@@ -52,6 +52,8 @@ func _run() -> void:
 	await _test_c11_play()
 	_test_c20_logic()
 	await _test_c20_play()
+	_test_vs_logic()
+	await _test_vs_play()
 	print("== resultado: %d ok, %d falha(s) ==" % [_passed, _failed])
 	quit(1 if _failed > 0 else 0)
 
@@ -2335,6 +2337,7 @@ func _same_values(a: Resource, b: Resource) -> bool:
 func _c2_setup(dist := 1.7) -> TrainingInstructor:
 	var ins := await _c1_setup(dist)
 	ins.posture.enabled = true
+	ins.posture.break_enabled = false   # o núcleo se testa sem a quebra; _vs_setup liga
 	ins.posture.reset()
 	return ins
 
@@ -2615,7 +2618,7 @@ func _test_c20_play() -> void:
 	await _tap(KEY_SPACE)
 	await _wait_until(func(): return CombatClock.time > tc + 0.1, 0.6)
 	_key(KEY_A, false)
-	_check(_c2_near(p.current, 0.0) and _c2_near(_player.vitals.health, hp), "esquiva pronta para o C2.1: evita o golpe como antes e ainda não pressiona")
+	_check(_c2_near(p.current, 14.0) and _c2_near(p.locked, 14.0) and _c2_near(_player.vitals.health, hp), "esquiva no tempo certo: evita o golpe como antes e crava 14 (esquiva justa)")
 	await _seconds(0.5)
 
 	# Cheia: só registra. Sem quebra nem reação nova no C2.0.
@@ -2628,7 +2631,7 @@ func _test_c20_play() -> void:
 	var phase_before := ins.phase
 	await _c2_hit(ins)
 	_check(p.is_full() and p.times_full >= 1 and ins.phase == phase_before, "postura cheia: só registra; o Instrutor não muda de fase")
-	_check(not TrainingInstructor.Phase.has("BROKEN"), "nenhuma fase de quebra existe no C2.0")
+	_check(ins.posture.state == PostureController.State.STABLE, "com a quebra desligada, cheia não quebra")
 	var hud := _main.get_node("DebugHud") as DebugHud
 	_check("postura 100/100" in hud._defense_text() and "cravada" in hud._defense_text() and "[CHEIA]" in hud._defense_text(), "HUD F3 mostra postura, cravada e cheia")
 	await _wait_until(func(): return not c.is_attacking(), 1.0)
@@ -2647,6 +2650,353 @@ func _test_c20_play() -> void:
 	_check(_c2_near(t.max_speed, 6.0) and _c2_near(t.dodge_distance, 4.0) and _c2_near(t.dodge_duration, 0.25) and _c2_near(t.dodge_recovery, 0.18) and _c2_near(t.dodge_iframe_start, 0.05) and _c2_near(t.dodge_iframe_end, 0.20), "movimentação e esquiva aprovadas intactas")
 	_check(_c2_near(df.data.perfect_window, 0.14) and _c2_near(df.data.whiff_lockout, 0.25) and _c2_near(df.data.counter_window, 0.80) and df.data.counter_charges == 1 and df.data.counter_requires_perfect, "parry de 0,14 s e janela de contra-ataque de 0,80 s intactos")
 	_check(_c2_near(strikes[0].damage, 10.0) and _c2_near(strikes[0].active_start, 7.0 / 60.0) and _c2_near(strikes[0].chain_open, 17.0 / 60.0) and _c2_near(strikes[1].damage, 10.0) and _c2_near(strikes[1].active_start, 8.0 / 60.0) and _c2_near(strikes[1].chain_open, 17.0 / 60.0), "tempos e dano de Kesa e Kiriage intactos")
+	ins.enabled = false
+	ins.posture.enabled = false
+	await _reset_player(Vector3(-25, 0.05, 25), -PI / 2.0)
+
+
+# --- Vertical slice: quebra, esquiva justa, exposição, anel e Cravada -------------------------
+
+## Instrutor pronto para a quebra, com a postura em `value` e sem recuperar ainda.
+func _vs_setup(value := 0.0, dist := 1.7) -> TrainingInstructor:
+	var ins := await _c2_setup(dist)
+	ins.posture.break_enabled = true
+	ins.enabled = false
+	await _seconds(0.7)
+	ins.posture.current = value
+	ins.posture._last_gain_t = CombatClock.time
+	return ins
+
+
+func _vs_break(ins: TrainingInstructor) -> void:
+	var p := ins.posture
+	p.current = p.max_posture() - 1.0
+	p._last_gain_t = CombatClock.time
+	await _c2_hit(ins)
+
+
+func _test_vs_logic() -> void:
+	print("-- Vertical slice: quebra (lógica pura)")
+	var pool: Array[PostureController] = []
+	var make := func() -> PostureController:
+		var q := PostureController.new(PostureData.new())
+		pool.append(q)
+		return q
+	var fill := func(q: PostureController, t: float, last_locks := false) -> void:
+		q.apply_hit(t, 40.0, false, q._last_event[PostureController.Source.HIT] + 1)
+		q.apply_hit(t + 0.01, 40.0, false, q._last_event[PostureController.Source.HIT] + 1)
+		q.apply_hit(t + 0.02, 30.0, last_locks, q._last_event[PostureController.Source.HIT] + 1)
+
+	var p: PostureController = make.call()
+	var seen := [0, false]
+	p.broken.connect(func(precise: bool) -> void:
+		seen[0] += 1
+		seen[1] = precise)
+	fill.call(p, 10.0)
+	_check(p.state == PostureController.State.BROKEN and seen[0] == 1 and not seen[1] and p.breaks == 1, "postura cheia quebra uma vez")
+	_check(_c2_near(p.broken_until, 10.02 + p.data.break_duration), "quebra dura 1,8 s", "%.2f s" % (p.broken_until - 10.02))
+	_check(_c2_near(p.apply_hit(10.5, 7.0, false, 900), 0.0) and _c2_near(p.apply_parry(10.5, 25.0, 900), 0.0), "pressão ignorada durante a quebra")
+	var until := p.broken_until
+	p.apply_hit(11.0, 7.0, false, 901)
+	_check(_c2_near(p.broken_until, until), "golpes não prorrogam a janela")
+	_check(p.can_finish(11.5) and not p.can_finish(until + 0.01), "finalizável só dentro da janela")
+	var rec := [0]
+	p.recovered.connect(func() -> void: rec[0] += 1)
+	p.update(until + 0.01)
+	_check(rec[0] == 1 and p.state == PostureController.State.STABLE and _c2_near(p.current, 0.0) and _c2_near(p.locked, 0.0), "fim da quebra sem finalizar: postura e piso zerados")
+	_check(p.escalation_steps == 1 and _c2_near(p.max_posture(), 125.0), "postura máxima +25% depois da quebra")
+	_check(_c2_near(p.apply_hit(until + 0.1, 4.0, false, 902), 2.0), "rebote: pressão pela metade por 3 s")
+	_check(_c2_near(p.apply_hit(until + 3.1, 4.0, false, 903), 4.0), "depois do rebote a pressão volta ao normal")
+
+	# Quebra de precisão: o contra-corte que completa ganha janela maior.
+	p = make.call()
+	var prec := [false]
+	p.broken.connect(func(precise: bool) -> void: prec[0] = precise)
+	fill.call(p, 10.0, true)
+	_check(prec[0] and _c2_near(p.broken_until, 10.02 + p.data.break_duration + p.data.break_precision_bonus), "quebra com contra-corte: +0,4 s de janela")
+
+	# Finalização.
+	p = make.call()
+	fill.call(p, 10.0)
+	var done := [0]
+	p.finished.connect(func() -> void: done[0] += 1)
+	p.begin_finish(10.5)
+	_check(p.state == PostureController.State.FINISHING and not p.can_finish(10.6), "Cravada reserva o alvo")
+	p.update(20.0)
+	_check(p.state == PostureController.State.FINISHING, "a janela congela durante a Cravada")
+	p.cancel_finish(30.0)
+	_check(p.state == PostureController.State.BROKEN and _c2_near(p.broken_until, 30.0 + (10.02 + 1.8 - 10.5)), "cancelar devolve o tempo que restava")
+	p.begin_finish(31.5)
+	p.cancel_finish(32.0)
+	_check(p.broken_until - 32.0 >= p.data.finish_resume_min - 0.001, "cancelar no fim da janela deixa ao menos 0,25 s")
+	p.begin_finish(32.1)
+	p.complete_finish(32.2)
+	_check(done[0] == 1 and p.finishes == 1 and p.state == PostureController.State.STABLE and _c2_near(p.current, 0.0) and p.escalation_steps == 1, "Cravada completa: postura zerada, rebote e escalonamento")
+	p.complete_finish(32.3)
+	_check(done[0] == 1, "completar duas vezes não conta de novo")
+
+	# Proteção contra ciclos: 5 quebras seguidas, limite de duas aplicações.
+	p = make.call()
+	var t := 10.0
+	var maxes: Array[float] = []
+	for i in 5:
+		var guard := 0
+		while p.state == PostureController.State.STABLE and guard < 40:
+			p.apply_hit(t, 40.0, false, 1000 + i * 100 + guard)
+			guard += 1
+			t += 0.05
+		p.update(p.broken_until + 0.01)
+		t = p.broken_until + 0.02
+		maxes.append(p.max_posture())
+	_check(p.breaks == 5 and maxes[0] == 125.0 and maxes[1] == 150.0 and maxes[4] == 150.0, "5 quebras seguidas: a postura máxima para em ×1,5 no confronto", str(maxes))
+
+	# Exposição.
+	p = make.call()
+	p.expose(11.0)
+	_check(_c2_near(p.apply_hit(10.5, 4.0, false, 1), 6.0), "exposto: golpe comum vale ×1,5")
+	_check(_c2_near(p.apply_hit(10.6, 12.0, true, 2), 12.0), "contra-corte não recebe o bônus (ele já crava)")
+	_check(_c2_near(p.apply_hit(11.1, 4.0, false, 3), 4.0), "fim da exposição")
+
+	# Quebra forçada e desligada.
+	p = make.call()
+	p.force_break(10.0)
+	_check(p.state == PostureController.State.BROKEN and p.is_full(), "quebra forçada (fim da vida do inimigo)")
+	p = make.call()
+	p.break_enabled = false
+	p.force_break(10.0)
+	fill.call(p, 11.0)
+	_check(p.state == PostureController.State.STABLE and p.is_full(), "quebra desligada: só registra")
+	for q in pool:
+		q.free()
+
+	var _bindings: Dictionary = (load("res://game/input/input_setup.gd") as GDScript).get_script_constant_map()["BINDINGS"]
+	var seen_keys := {}
+	var dup := false
+	for action: String in _bindings:
+		for key: int in _bindings[action].get("keys", []):
+			dup = dup or seen_keys.has(key)
+			seen_keys[key] = true
+		for pad: int in _bindings[action].get("pad_buttons", []):
+			dup = dup or seen_keys.has(100000 + pad)
+			seen_keys[100000 + pad] = true
+	_check(not dup and InputMap.has_action("finish") and seen_keys.has(KEY_F) and seen_keys.has(100000 + JOY_BUTTON_Y), "F e Y livres: nenhuma tecla ou botão repetido no mapa")
+
+
+func _test_vs_play() -> void:
+	print("-- Vertical slice: quebra e Cravada no jogo")
+	var c := _player.combat
+	var fx := _main.get("posture_effects") as PostureEffects
+	var finish := c.combo.finish_strike
+	_check(finish != null and String(finish.id) == "cravada" and finish.clip_resource != null and finish.authored_grip, "Cravada: clipe autoral próprio, fora da cadeia")
+	_check(c.combo.strikes.size() == 3 and _player.visual.anim_player.has_animation(&"Katana_4"), "a cadeia continua com 3 golpes e a Cravada tem fatia própria")
+
+	# Trajetória da lâmina: a tabela do acerto acompanha a pose real.
+	var ins := await _vs_setup()
+	await _seconds(0.5)
+	await _attack_tap()
+	await _wait_until(func(): return c.clip_time() >= c.current.active_start + 0.03, 0.4)
+	var live := _player.visual.blade_segment(c.current.blade_from, c.current.blade_to)
+	var baked := _player.visual.strike_blade_segment(c.current, c.clip_time())
+	_check(live[1].distance_to(baked[1]) < 0.45, "ponta da lâmina na tabela acompanha a pose na tela (lâmina em movimento rápido)", "%.2f m" % live[1].distance_to(baked[1]))
+	await _wait_until(func(): return not c.is_attacking(), 1.0)
+
+	# Esquiva justa.
+	ins = await _c2_setup()
+	ins.posture.break_enabled = true
+	var p := ins.posture
+	var evades := [0]
+	ins.evade_credited.connect(func() -> void: evades[0] += 1)
+	var hp := _player.vitals.health
+	var tc := await _c1_next_contact(ins)
+	while CombatClock.time < tc - 0.10:
+		await physics_frame
+	_key(KEY_A, true)
+	await _tap(KEY_SPACE)
+	await _wait_until(func(): return CombatClock.time > tc + 0.1, 0.6)
+	_key(KEY_A, false)
+	_check(evades[0] == 1 and _c2_near(p.current, 14.0) and _c2_near(p.locked, 14.0) and _c2_near(_player.vitals.health, hp), "esquiva justa: crédito uma vez, 14 cravados, sem dano")
+	_check(p.exposed_until > CombatClock.time, "esquiva justa abre a exposição")
+	await _seconds(0.5)
+	ins = await _c2_setup()
+	p = ins.posture
+	tc = await _c1_next_contact(ins)
+	while CombatClock.time < tc - 0.32:
+		await physics_frame
+	_key(KEY_A, true)
+	await _tap(KEY_SPACE)
+	await _wait_until(func(): return CombatClock.time > tc + 0.1, 0.8)
+	_key(KEY_A, false)
+	_check(evades[0] == 1 and _c2_near(p.current, 0.0), "esquiva cedo demais: sem dano e sem crédito")
+	await _seconds(0.5)
+	ins = await _c2_setup(4.0)
+	ins.engage_range = 6.0
+	p = ins.posture
+	tc = await _c1_next_contact(ins)
+	while CombatClock.time < tc - 0.10:
+		await physics_frame
+	await _tap(KEY_SPACE)
+	await _wait_until(func(): return CombatClock.time > tc + 0.1, 0.6)
+	ins.engage_range = 4.0
+	_check(evades[0] == 1 and _c2_near(p.current, 0.0), "esquiva fora de ameaça real não dá pressão")
+	await _seconds(0.5)
+
+	# Anel.
+	ins = await _vs_setup()
+	p = ins.posture
+	await _ticks(2)
+	_check(not fx.ring_visible(), "anel invisível sem pressão")
+	p.current = 40.0
+	p._last_gain_t = CombatClock.time
+	await process_frame
+	await process_frame
+	_check(fx.ring_visible() and absf(fx.ring_fill() - 0.4) < 0.02, "anel proporcional à pressão", "%.2f" % fx.ring_fill())
+
+	# Quebra por golpes: interrompe o ataque em preparação.
+	ins = await _vs_setup()
+	p = ins.posture
+	ins.enabled = true
+	ins.interval = 0.2
+	await _wait_until(func(): return ins.phase == TrainingInstructor.Phase.WINDUP, 1.0)
+	var ev0 := fx.events.size()
+	await _vs_break(ins)
+	_check(ins.phase == TrainingInstructor.Phase.BROKEN and p.state == PostureController.State.BROKEN, "golpe que completa a postura quebra o Instrutor")
+	_check(ins.next_contact_time < 0.0, "a quebra interrompe o ataque em preparação")
+	_check(fx.events.size() > ev0 and "quebra" in fx.events.back(), "som da quebra no mesmo passo")
+	_check(c.in_hitstop(), "hitstop no jogador na quebra")
+	_check(fx.ring_visible(), "anel continua visível na quebra")
+	var ne0 := _player.vitals.neural_energy
+	var results0 := ins.results.size()
+	await _wait_until(func(): return not c.is_attacking(), 1.0)
+	await _seconds(0.3)
+	_check(ins.results.size() == results0, "quebrado, o Instrutor não ataca")
+	_check(ins.get_child_count() > 0 and fx.letter_visible(), "a letra de finalizar aparece com o alvo ao alcance")
+
+	# Martelar J nunca finaliza.
+	var finishes0 := p.finishes
+	for i in 8:
+		await _attack_tap()
+		await _seconds(0.08)
+	_check(not c.is_finisher and p.finishes == finishes0 and p.state != PostureController.State.FINISHING, "martelar J nunca finaliza")
+	await _wait_until(func(): return not c.is_attacking(), 1.0)
+	await _wait_until(func(): return p.state == PostureController.State.STABLE, 3.0)
+
+	# Janela acaba sem finalizar.
+	ins = await _vs_setup()
+	p = ins.posture
+	ins.enabled = true
+	await _vs_break(ins)
+	var t_end := p.broken_until
+	await _wait_until(func(): return p.state == PostureController.State.STABLE, 3.0)
+	_check(absf(CombatClock.time - t_end) < 2.0 * DT and ins.phase == TrainingInstructor.Phase.RECOVERY, "fim da janela: o Instrutor levanta")
+	_check(_c2_near(p.current, 0.0) and p.escalation_steps >= 1, "quem não finaliza perde a vantagem")
+	ins.interval = 1.4
+	await _wait_until(func(): return ins.phase == TrainingInstructor.Phase.WINDUP, 1.8)
+	_check(ins.phase == TrainingInstructor.Phase.WINDUP and ins.phase_time < 0.2, "ele volta a atacar mais cedo")
+	await _seconds(1.2)
+
+	# F fora de hora não faz nada.
+	ins = await _vs_setup()
+	p = ins.posture
+	var sw0 := c.swing_id
+	await _tap(KEY_F)
+	await _seconds(0.2)
+	_check(c.swing_id == sw0 and _player.state == Player.State.MOVE, "F sem inimigo quebrado não faz nada")
+
+	# Cravada completa.
+	var finished0 := p.finishes
+	await _vs_break(ins)
+	await _wait_until(func(): return not c.is_attacking(), 1.0)
+	await _tap(KEY_F)
+	await _ticks(2)
+	_check(c.is_finisher and c.current == finish and p.state == PostureController.State.FINISHING and _player.state == Player.State.ATTACK, "F com o alvo quebrado: Cravada")
+	_check(_player.is_invulnerable(), "invulnerável até o contato")
+	var dmg0 := ins.total_damage
+	await _wait_until(func(): return p.finishes > finished0, 0.8)
+	_check(p.finishes == finished0 + 1 and ins.phase == TrainingInstructor.Phase.DOWN and ins.defeats >= 1, "contato da Cravada derruba o Instrutor")
+	ins.enabled = true
+	_check(_c2_near(ins.total_damage - dmg0, finish.damage), "um só contato, dano 60")
+	_check(_player.vitals.neural_energy - ne0 > 0.0, "Energia Neural conta (sem gasto)")
+	await _wait_until(func(): return c.move_cancel_open(), 0.6)
+	_key(KEY_S, true)
+	await _wait_until(func(): return _player.state == Player.State.MOVE, 0.3)
+	_check(_player.state == Player.State.MOVE, "sair da Cravada pelo movimento: sem prender")
+	_key(KEY_S, false)
+	await _wait_until(func(): return ins.phase == TrainingInstructor.Phase.WAIT, 3.0)
+	_check(ins.phase == TrainingInstructor.Phase.WAIT and _c2_near(p.current, 0.0), "o Instrutor se recompõe e reinicia")
+
+	# Cancelar antes do contato devolve a janela.
+	ins = await _vs_setup()
+	p = ins.posture
+	finished0 = p.finishes
+	await _vs_break(ins)
+	await _wait_until(func(): return not c.is_attacking(), 1.0)
+	await _tap(KEY_F)
+	await _wait_until(func(): return c.is_finisher and c.dodge_cancel_open(), 0.3)
+	await _tap(KEY_SPACE)
+	await _wait_until(func(): return _player.state == Player.State.DODGE, 0.3)
+	_check(_player.state == Player.State.DODGE and p.state == PostureController.State.BROKEN and p.finishes == finished0, "esquiva antes do contato cancela e a janela volta")
+	await _wait_until(func(): return p.state == PostureController.State.STABLE, 3.0)
+	await _seconds(0.3)
+
+	# Alcance e contato garantido em 8 direções e 2 distâncias.
+	var landed := 0
+	var missed: Array[String] = []
+	for dist: float in [1.2, 2.4]:
+		for i in 8:
+			ins = await _vs_setup()
+			p = ins.posture
+			p.reset()
+			p.break_enabled = true
+			var yaw := TAU * i / 8.0
+			_player.global_position = ins.global_position + Vector3(sin(yaw), 0.0, cos(yaw)) * dist + Vector3(0, 0.05, 0)
+			_player.rotation.y = atan2(sin(yaw), cos(yaw))
+			await _seconds(0.05)
+			p.force_break(CombatClock.time)
+			await _ticks(2)
+			var before := p.finishes
+			await _tap(KEY_F)
+			await _wait_until(func(): return p.finishes > before, 0.8)
+			landed += 1 if p.finishes > before else 0
+			if p.finishes == before:
+				missed.append("d %.1f dir %d dist %.2f st %d estado %d" % [dist, i, _player.global_position.distance_to(ins.global_position), p.state, _player.state])
+			await _wait_until(func(): return not c.is_attacking(), 1.0)
+	_check(landed == 16, "Cravada acerta de 8 direções e 2 distâncias", "%d de 16 %s" % [landed, str(missed)])
+	ins = await _vs_setup(0.0, 3.2)
+	p = ins.posture
+	p.force_break(CombatClock.time)
+	await _ticks(2)
+	sw0 = c.swing_id
+	await _tap(KEY_F)
+	await _seconds(0.1)
+	_check(c.swing_id == sw0, "fora do alcance de 2,6 m o F não faz nada")
+	await _wait_until(func(): return p.state == PostureController.State.STABLE, 3.0)
+
+	# F e J no mesmo passo: finaliza.
+	ins = await _vs_setup()
+	p = ins.posture
+	p.force_break(CombatClock.time)
+	await _ticks(2)
+	_key(KEY_F, true)
+	_key(KEY_J, true)
+	await physics_frame
+	_key(KEY_F, false)
+	_key(KEY_J, false)
+	await _seconds(0.15)
+	_check(c.is_attacking() and c.is_finisher, "F e J no mesmo passo, mesmo no hitstop da quebra: Cravada")
+	await _wait_until(func(): return not c.is_attacking(), 1.2)
+
+	# Quebra com contra-corte depois de parry: janela maior.
+	ins = await _c2_setup()
+	ins.posture.break_enabled = true
+	p = ins.posture
+	var n0 := ins.hits.size()
+	await _c11_parry(ins)
+	await _seconds(0.1)
+	p.current = 95.0
+	await _attack_tap()
+	await _wait_until(func(): return ins.hits.size() > n0, 0.6)
+	_check(p.state == PostureController.State.BROKEN and p.broken_until - CombatClock.time > p.data.break_duration + 0.2, "parry, contra-corte e quebra: janela de 2,2 s", "%.2f s, resultado %s, contra %s, atual %.0f" % [p.broken_until - CombatClock.time, str(ins.results.back().get("result")), str(c.is_counter), p.current])
+	await _wait_until(func(): return p.state == PostureController.State.STABLE, 3.0)
 	ins.enabled = false
 	ins.posture.enabled = false
 	await _reset_player(Vector3(-25, 0.05, 25), -PI / 2.0)

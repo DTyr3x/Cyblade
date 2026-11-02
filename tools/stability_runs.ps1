@@ -10,7 +10,7 @@ $summary = @()
 for ($i = 1; $i -le $Runs; $i++) {
     $log = Join-Path $root "$Out\run$i.log"
     $err = Join-Path $root "$Out\run$i.err.log"
-    $argList = @('--path', $root, '--rendering-driver', 'vulkan', '--windowed', '--resolution', '1920x1080', '--disable-vsync', '--', '--playtest', "--out=$Out\run$i")
+    $argList = @('--path', $root, '--rendering-driver', 'vulkan', '--windowed', '--resolution', '1920x1080', '--disable-vsync', 'res://game/main.tscn', '--', '--playtest', "--out=$Out\run$i")
     $p = Start-Process -FilePath $godot -ArgumentList $argList -PassThru -RedirectStandardOutput $log -RedirectStandardError $err -WindowStyle Minimized
     $ok = $p.WaitForExit($TimeoutSec * 1000)
     $lastSeg = (Select-String -Path $log -Pattern "trecho '(.*)' conclu" | Select-Object -Last 1)

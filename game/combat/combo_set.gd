@@ -12,12 +12,16 @@ const KIRIAGE_CLIP := "res://assets/animations/katana/katana_kiriage.res"
 const TSUKI_CLIP := "res://assets/animations/katana/katana_tsuki.res"
 ## Clipes autorais do C1.1 (tools/build_katana_strike.ps1).
 const COUNTER_CLIP := "res://assets/animations/katana/katana_contra.res"
+## Clipe autoral da finalização (tools/build_katana_strike.ps1).
+const FINISH_CLIP := "res://assets/animations/katana/katana_cravada.res"
 
 @export var weapon_family: StringName = WeaponStance.KATANA
 @export var strikes: Array[StrikeData] = []
 ## Contra-golpe de oportunidade (C1.1): fora da cadeia. Só começa pela oportunidade aberta por um parry
 ## perfeito (ver DefenseController); fora dela a cadeia normal vale, como antes.
 @export var counter_strike: StrikeData
+## Finalização manual (Cravada): fora da cadeia, só sai com um inimigo quebrado ao alcance.
+@export var finish_strike: StrikeData
 ## Depois de terminar um golpe, o encadeamento ainda vale por este tempo (s); depois recomeça no 1.
 @export var combo_reset_time := 0.55
 ## Quanto tempo um ataque apertado antes da hora fica guardado (s).
@@ -31,6 +35,8 @@ static func load_default() -> ComboSet:
 	if ResourceLoader.exists(DEFAULT_PATH):
 		var res := load(DEFAULT_PATH) as ComboSet
 		if res != null and not res.strikes.is_empty():
+			if res.finish_strike == null:
+				res.finish_strike = finish_default()
 			return res
 	return katana_default()
 
@@ -122,6 +128,7 @@ static func katana_default() -> ComboSet:
 
 	set.strikes = [s1, s2, s3]
 	set.counter_strike = counter_default()
+	set.finish_strike = finish_default()
 	return set
 
 
@@ -153,4 +160,32 @@ static func counter_default() -> StrikeData:
 	c.reaction = StrikeData.Reaction.LIGHT_RIGHT
 	c.posture_pressure = 12.0
 	c.posture_locks = true
+	return c
+
+
+## Cravada: estocada vertical (tools/blender/katana_finish_keys.py). Quadros de 60 Hz: subida 0-13, descida
+## 13-19, contato 19, cravado até 27, livre para mover desde 27, fim 42. O avanço é ajustado ao alvo no início.
+static func finish_default() -> StrikeData:
+	var c := StrikeData.new()
+	c.id = &"cravada"
+	c.display_name = "Cravada"
+	c.clip_resource = load(FINISH_CLIP) as Animation
+	c.authored_grip = true
+	c.clip_from = 0.0
+	c.clip_to = 42.0 / 60.0
+	c.speed = 1.0
+	c.active_start = 19.0 / 60.0
+	c.active_end = 24.0 / 60.0
+	c.chain_open = 42.0 / 60.0
+	c.dodge_cancel_from = 3.0 / 60.0
+	c.move_cancel_from = 27.0 / 60.0
+	c.advance_distance = 0.45
+	c.advance_start = 2.0 / 60.0
+	c.advance_end = 18.0 / 60.0
+	c.turn_lock = 0.0
+	c.damage = 60.0
+	c.hitstop = 0.12
+	c.knockback = 0.0
+	c.reaction = StrikeData.Reaction.HEAVY
+	c.camera_shake = 0.03
 	return c

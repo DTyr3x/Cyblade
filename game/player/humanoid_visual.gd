@@ -313,16 +313,17 @@ func setup_strikes(combo: ComboSet) -> void:
 			lib.remove_animation(clip_name)
 		lib.add_animation(clip_name, clip)
 		_strike_clips.append(clip_name)
-	# Contra-golpe de oportunidade (C1.1): fatia extra depois da cadeia (índice = strikes.size()).
-	if combo.counter_strike != null:
-		var cs := combo.counter_strike
-		var csrc := cs.clip_resource if cs.clip_resource != null else src
-		var cclip := KatanaClips.derive(csrc, cs.clip_from, cs.clip_to, KatanaClips.Mirror.NONE)
-		var cname := StringName("Katana_%d" % combo.strikes.size())
-		if lib.has_animation(cname):
-			lib.remove_animation(cname)
-		lib.add_animation(cname, cclip)
-		_strike_clips.append(cname)
+	# Fatias extras depois da cadeia: contra-corte (índice strikes.size()) e Cravada (seguinte).
+	for extra: StrikeData in [combo.counter_strike, combo.finish_strike]:
+		if extra == null:
+			continue
+		var esrc := extra.clip_resource if extra.clip_resource != null else src
+		var eclip := KatanaClips.derive(esrc, extra.clip_from, extra.clip_to, KatanaClips.Mirror.NONE)
+		var ename := StringName("Katana_%d" % _strike_clips.size())
+		if lib.has_animation(ename):
+			lib.remove_animation(ename)
+		lib.add_animation(ename, eclip)
+		_strike_clips.append(ename)
 	_bake_blade_tracks(combo)
 	# Pose de guarda (C1), autoral: tools/blender/katana_guard_keys.py.
 	if ResourceLoader.exists(GUARD_CLIP_PATH):
@@ -350,6 +351,8 @@ func _bake_blade_tracks(combo: ComboSet) -> void:
 	var strikes: Array[StrikeData] = combo.strikes.duplicate()
 	if combo.counter_strike != null:
 		strikes.append(combo.counter_strike)
+	if combo.finish_strike != null:
+		strikes.append(combo.finish_strike)
 	for i in strikes.size():
 		var grip := Transform3D(STRIKE_GRIP if strikes[i].authored_grip else Basis.IDENTITY, katana.position)
 		_blade_tracks[strikes[i]] = BladeTrack.bake(anim_player.get_animation(_strike_clips[i]), skeleton, hand, to_body, grip)
@@ -479,6 +482,13 @@ func freeze(duration: float) -> void:
 
 func is_frozen() -> bool:
 	return _freeze_left > 0.0
+
+
+## Queda ao perder a luta: o corpo tomba e fica no chão.
+func play_defeat() -> void:
+	var tween := create_tween().set_parallel().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.tween_property(self, "rotation:x", -PI * 0.48, 0.45)
+	tween.tween_property(self, "position:y", 0.18, 0.45)
 
 
 ## Clarão curto no corpo (golpe recebido em vermelho; parry em branco).

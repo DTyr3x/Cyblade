@@ -5,7 +5,7 @@ extends CanvasLayer
 
 const REFRESH_SECONDS := 0.1
 const RECENT_FRAMES := 240
-const HINT_TEXT := "Teclado: WASD mover · J ou mouse esq. atacar · K defesa · Espaço esquiva · Q/E ou botão direito+mouse girar câmera · R centralizar · 1/2/3 enquadramento · F3 HUD · Esc sair\nGamepad: stick esq. mover · X atacar · LB defesa · B esquiva · stick dir. girar câmera · R3 centralizar · ←/→ enquadramento · Back HUD"
+const HINT_TEXT := "Teclado: WASD mover · J ou mouse esq. atacar · K defesa · Espaço esquiva · F Cravada · Q/E ou botão direito+mouse girar câmera · R centralizar · 1/2/3 enquadramento · F3 HUD · Esc sair\nGamepad: stick esq. mover · X atacar · LB defesa · B esquiva · Y Cravada · stick dir. girar câmera · R3 centralizar · ←/→ enquadramento · Back HUD"
 
 var camera_rig: CameraRig
 var player: Player
@@ -47,6 +47,11 @@ func _ready() -> void:
 	_hint.offset_left = 12
 	_hint.offset_top = -54
 	add_child(_hint)
+
+
+## Painel de depuração ligado ou desligado (o confronto começa sem ele; F3 alterna).
+func set_panel_visible(on: bool) -> void:
+	_panel.visible = on
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -98,7 +103,7 @@ func _defense_text() -> String:
 	if main != null and main.get("instructor") != null:
 		var ins: TrainingInstructor = main.get("instructor")
 		var p := ins.posture
-		var flag := " [desligada]" if not p.enabled else (" [CHEIA]" if p.is_full() else "")
+		var flag := " [desligada]" if not p.enabled else (" [QUEBRADA %.1f s]" % maxf(p.broken_until - CombatClock.time, 0.0) if p.state == PostureController.State.BROKEN else (" [CHEIA]" if p.is_full() else ""))
 		ins_s = "  Instrutor: %s  postura %.0f/%.0f  cravada %.0f%s" % [TrainingInstructor.Phase.keys()[ins.phase], p.current, p.max_posture(), p.locked, flag]
 	return "Defesa: %s%s  último: %s  em falso: %d  aberturas %d/%d/%d\nVida %.0f  Energia Neural %.0f%s" % ["GUARDA" if player.state == Player.State.GUARD else "-", flags, last, df.whiff_count, df.opportunities_opened, df.opportunities_used, df.opportunities_expired, v.health, v.neural_energy, ins_s]
 

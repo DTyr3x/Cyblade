@@ -21,6 +21,7 @@ var effects: CombatEffects
 ## Instrutor de treino que ataca (C1) e o feedback da defesa.
 var instructor: TrainingInstructor
 var defense_effects: DefenseEffects
+var posture_effects: PostureEffects
 
 var _last_frame_usec := 0
 
@@ -45,24 +46,33 @@ func _ready() -> void:
 
 
 func _build_combat() -> void:
-	dummy = TrainingDummy.new()
-	dummy.name = "BonecoDeTreino"
-	add_child(dummy)
-	dummy.global_position = DUMMY_POSITION
 	effects = CombatEffects.new()
 	effects.name = "CombateEfeitos"
 	add_child(effects)
 	effects.setup(player.combat, player.visual, player.hit_detector, camera_rig)
-	instructor = TrainingInstructor.new()
-	instructor.name = "Instrutor"
-	add_child(instructor)
-	instructor.global_position = INSTRUCTOR_POSITION
-	instructor.target = player
+	_spawn_opponents()
 	defense_effects = DefenseEffects.new()
 	defense_effects.name = "DefesaEfeitos"
 	add_child(defense_effects)
 	defense_effects.setup(player)
 	defense_effects.watch_instructor(instructor)
+	posture_effects = PostureEffects.new()
+	posture_effects.name = "PosturaEfeitos"
+	add_child(posture_effects)
+	posture_effects.setup(instructor, player)
+
+
+## Quem está em cena: no treino, o boneco e o Instrutor. O confronto troca pelo robô.
+func _spawn_opponents() -> void:
+	dummy = TrainingDummy.new()
+	dummy.name = "BonecoDeTreino"
+	add_child(dummy)
+	dummy.global_position = DUMMY_POSITION
+	instructor = TrainingInstructor.new()
+	instructor.name = "Instrutor"
+	add_child(instructor)
+	instructor.global_position = INSTRUCTOR_POSITION
+	instructor.target = player
 
 
 func _physics_process(delta: float) -> void:

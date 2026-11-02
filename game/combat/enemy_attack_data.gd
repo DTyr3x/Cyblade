@@ -29,6 +29,14 @@ const DEFAULT_PATH := "res://game/data/instrutor_ataque.tres"
 ## Reservado: golpes que não podem ser defendidos.
 @export var parryable := true
 
+@export_group("Variações (robô)")
+## Avanço máximo do atacante durante o golpe (m). 0 = golpe parado.
+@export var advance_distance := 0.0
+## Golpe seguinte da mesma sequência, sem voltar a esperar.
+@export var follow_up: EnemyAttackData
+## Golpe em giro: o corpo do atacante roda durante o golpe.
+@export var spin := false
+
 
 static func load_default() -> EnemyAttackData:
 	if ResourceLoader.exists(DEFAULT_PATH):

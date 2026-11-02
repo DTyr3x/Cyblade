@@ -112,6 +112,51 @@ static func cue_tic() -> AudioStreamWAV:
 	return _wav(data)
 
 
+## Cravar: clique metálico curto e mais grave que o sinal do inimigo.
+static func posture_lock() -> AudioStreamWAV:
+	var n := int(RATE * 0.09)
+	var data := PackedByteArray()
+	data.resize(n * 2)
+	for i in n:
+		var t := i / float(RATE)
+		var s := (sin(TAU * 1250.0 * t) * 0.6 + sin(TAU * 1880.0 * t) * 0.25) * exp(-t * 55.0) + sin(TAU * 180.0 * t) * exp(-t * 60.0) * 0.5
+		data.encode_s16(i * 2, int(clampf(s * 0.8, -1.0, 1.0) * 32000.0))
+	return _wav(data)
+
+
+## Quebra de postura: estalo seco e queda de tensão elétrica, o som mais grave do combate.
+static func posture_break(seed_value := 31) -> AudioStreamWAV:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_value
+	var n := int(RATE * 0.55)
+	var data := PackedByteArray()
+	data.resize(n * 2)
+	var phase := 0.0
+	for i in n:
+		var t := i / float(RATE)
+		phase += TAU * lerpf(400.0, 60.0, clampf(t / 0.5, 0.0, 1.0)) / RATE
+		var crack := rng.randf_range(-1.0, 1.0) * exp(-t * 80.0)
+		var fall := (sin(phase) * 0.7 + (1.0 if sin(phase) > 0.0 else -1.0) * 0.2) * exp(-t * 4.5)
+		data.encode_s16(i * 2, int(clampf((crack * 0.8 + fall) * 0.85, -1.0, 1.0) * 32000.0))
+	return _wav(data)
+
+
+## Cravada: impacto pesado com um toque metálico longo.
+static func finish_hit(seed_value := 37) -> AudioStreamWAV:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_value
+	var n := int(RATE * 0.5)
+	var data := PackedByteArray()
+	data.resize(n * 2)
+	for i in n:
+		var t := i / float(RATE)
+		var click := rng.randf_range(-1.0, 1.0) * exp(-t * 50.0)
+		var thump := sin(TAU * (70.0 + 90.0 * exp(-t * 25.0)) * t) * exp(-t * 11.0)
+		var ring := (sin(TAU * 1640.0 * t) * 0.5 + sin(TAU * 2710.0 * t) * 0.3) * exp(-t * 8.0)
+		data.encode_s16(i * 2, int(clampf((click * 0.6 + thump + ring * 0.4) * 0.8, -1.0, 1.0) * 32000.0))
+	return _wav(data)
+
+
 static func _wav(data: PackedByteArray) -> AudioStreamWAV:
 	var w := AudioStreamWAV.new()
 	w.format = AudioStreamWAV.FORMAT_16_BITS

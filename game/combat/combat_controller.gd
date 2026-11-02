@@ -36,6 +36,10 @@ var _phase_before := Phase.NONE
 var chaining := false
 ## O golpe em curso é o contra-golpe de oportunidade.
 var is_counter := false
+## O golpe em curso é a finalização manual.
+var is_finisher := false
+## Avanço do golpe em curso quando difere do dado (a Cravada ajusta ao alvo). Negativo = usa o dado.
+var advance_override := -1.0
 var chained_from: StrikeData = null
 var chained_from_clip_time := 0.0
 
@@ -87,6 +91,8 @@ func try_start(can_act: bool) -> bool:
 
 func _start(i: int) -> void:
 	is_counter = false
+	is_finisher = false
+	advance_override = -1.0
 	var finished_before := current
 	chained_from = null
 	if phase != Phase.NONE and finished_before != null:
@@ -111,6 +117,8 @@ func _start(i: int) -> void:
 func start_counter() -> bool:
 	if combo.counter_strike == null or phase != Phase.NONE:
 		return false
+	is_finisher = false
+	advance_override = -1.0
 	chained_from = null
 	index = combo.strikes.size()   # fatia própria no AnimationTree, fora da cadeia
 	current = combo.counter_strike
@@ -120,6 +128,26 @@ func start_counter() -> bool:
 	_hitstop = 0.0
 	_next_index = 0
 	is_counter = true
+	_set_phase(Phase.WINDUP)
+	strike_started.emit(current, index, swing_id)
+	return true
+
+
+## Começa a finalização. Só a Player chama, com o alvo já escolhido. `advance`: distância até parar diante dele.
+func start_finish(advance: float) -> bool:
+	if combo.finish_strike == null or phase != Phase.NONE:
+		return false
+	chained_from = null
+	index = combo.strikes.size() + 1
+	current = combo.finish_strike
+	swing_id += 1
+	time = 0.0
+	_buffer = 0.0
+	_hitstop = 0.0
+	_next_index = 0
+	is_counter = false
+	is_finisher = true
+	advance_override = advance
 	_set_phase(Phase.WINDUP)
 	strike_started.emit(current, index, swing_id)
 	return true
@@ -180,11 +208,14 @@ func tick(delta: float) -> bool:
 
 ## Avanço (m) que o golpe quer aplicar entre dois instantes de tempo REAL, com perfil suave.
 func advance_between(t0: float, t1: float) -> float:
-	if current == null or current.advance_distance <= 0.0:
+	if current == null:
+		return 0.0
+	var total := advance_override if advance_override >= 0.0 else current.advance_distance
+	if total <= 0.0:
 		return 0.0
 	var a := _advance_fraction(t0 * current.speed)
 	var b := _advance_fraction(t1 * current.speed)
-	return (b - a) * current.advance_distance
+	return (b - a) * total
 
 
 func _advance_fraction(clip_t: float) -> float:

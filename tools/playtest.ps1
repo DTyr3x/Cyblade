@@ -10,5 +10,5 @@ if (-not (Test-Path (Join-Path $root '.godot'))) {
     & $godot --headless --path $root --import | Out-Null
 }
 
-& $godot --path $root --rendering-driver vulkan --windowed --resolution 1920x1080 --disable-vsync -- --playtest "--out=$Out"
+& $godot --path $root --rendering-driver vulkan --windowed --resolution 1920x1080 --disable-vsync res://game/main.tscn -- --playtest "--out=$Out"
 exit $LASTEXITCODE

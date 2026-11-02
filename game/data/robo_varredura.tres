@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="EnemyAttackData" format=3]
+
+[ext_resource type="Script" path="res://game/combat/enemy_attack_data.gd" id="1_ataque"]
+
+[resource]
+script = ExtResource("1_ataque")
+display_name = "Varredura"
+windup = 0.9
+cue_lead = 0.3
+strike_time = 0.3
+active_start = 0.12
+active_end = 0.22
+recovery = 1.1
+off_balance = 0.8
+attack_range = 2.9
+arc_deg = 360.0
+damage = 24.0
+parryable = false
+spin = true

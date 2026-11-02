@@ -1,9 +1,13 @@
 class_name CombatVitals
 extends Node
-## Vida do jogador para TREINO (sem morte: zerou, volta cheia e conta uma derrota) e contadores
-## provisórios do C1. A Energia Neural e a pressão de postura só são somadas; o efeito vem no C2/C3.
+## Vida do jogador. Em treino não há morte (zerou, volta cheia e conta uma derrota); no confronto, `defeated`
+## encerra a luta. A Energia Neural só é somada; o efeito vem no C3.
 
 signal changed
+signal defeated
+
+## Treino: zerou, volta cheia. Fora dele a vida fica em zero e `defeated` é emitido.
+@export var training := true
 
 @export var max_health := 100.0
 ## Depois de tanto tempo sem dano, a vida volta a esta taxa (por segundo).
@@ -19,12 +23,24 @@ var _since_damage := 99.0
 func damage(amount: float) -> void:
 	if amount <= 0.0:
 		return
+	if health <= 0.0:
+		return
 	health -= amount
 	_since_damage = 0.0
 	if health <= 0.0:
 		defeats += 1
-		health = max_health
+		if training:
+			health = max_health
+		else:
+			health = 0.0
+			defeated.emit()
 	changed.emit()
+
+
+func heal(amount: float) -> void:
+	if health > 0.0:
+		health = minf(health + amount, max_health)
+		changed.emit()
 
 
 func add_neural_energy(amount: float) -> void:
@@ -34,5 +50,5 @@ func add_neural_energy(amount: float) -> void:
 
 func tick(delta: float) -> void:
 	_since_damage += delta
-	if _since_damage >= regen_delay and health < max_health:
+	if _since_damage >= regen_delay and health < max_health and health > 0.0:
 		health = minf(health + regen_rate * delta, max_health)

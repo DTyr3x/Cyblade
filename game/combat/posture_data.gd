@@ -32,10 +32,45 @@ const DEFAULT_PATH := "res://game/data/postura_instrutor.tres"
 @export_range(0.0, 3.0, 0.05) var parry_gain_ratio := 1.0
 @export_range(0.0, 3.0, 0.05) var evade_gain_ratio := 1.0
 
-@export_group("Esquiva justa (integração pronta; a detecção vem no C2.1)")
+@export_group("Esquiva justa")
 @export_range(0.0, 50.0, 0.5) var evade_pressure := 14.0
+## A esquiva começou até este tempo (s) antes do contato, com o jogador dentro da ameaça.
+@export_range(0.05, 0.4, 0.01) var evade_window := 0.20
 
-@export_group("Escalonamento (planejado para a quebra do C2.2)")
+@export_group("Exposição")
+## Golpes comuns valem isto enquanto o inimigo está exposto (desequilíbrio do parry ou depois da esquiva justa).
+@export_range(1.0, 3.0, 0.05) var exposed_multiplier := 1.5
+@export_range(0.0, 3.0, 0.05) var evade_exposed_time := 1.0
+
+@export_group("Quebra")
+@export_range(0.5, 5.0, 0.05) var break_duration := 1.8
+## Janela extra quando a quebra veio de um golpe que crava (contra-corte).
+@export_range(0.0, 2.0, 0.05) var break_precision_bonus := 0.4
+@export_range(0.0, 0.3, 0.01) var break_hitstop := 0.10
+## Depois da quebra, por este tempo (s) a pressão ganha vale `rebound_gain_ratio`.
+@export_range(0.0, 10.0, 0.1) var rebound_time := 3.0
+@export_range(0.0, 1.0, 0.05) var rebound_gain_ratio := 0.5
+## Espera do inimigo antes do primeiro ataque depois de se levantar (s).
+@export_range(0.0, 3.0, 0.05) var post_break_interval := 0.6
+
+@export_group("Finalização")
+@export_range(0.5, 6.0, 0.05) var finish_range := 2.6
+## Arco, em torno da direção pressionada (ou da frente), em que o alvo pode ser finalizado.
+@export_range(30.0, 360.0, 5.0) var finish_arc_deg := 180.0
+## Distância em que a Cravada para diante do alvo.
+@export_range(0.5, 2.0, 0.05) var finish_stop_distance := 1.05
+## Cancelou antes do contato: a janela volta com pelo menos este tempo (s).
+@export_range(0.0, 1.0, 0.05) var finish_resume_min := 0.25
+## Tempo no chão depois da Cravada (Instrutor).
+@export_range(0.0, 5.0, 0.1) var finish_down_time := 1.2
+## Fração da vida máxima que a Cravada tira.
+@export_range(0.0, 1.0, 0.01) var finish_health_ratio := 0.40
+
+@export_group("Recompensas (contadores: o efeito da Energia Neural fica para o C3)")
+@export var break_neural_energy := 10.0
+@export var finish_neural_energy := 30.0
+
+@export_group("Escalonamento")
 ## Cada aplicação soma esta fração à postura máxima, sobre o valor base (0,25 + 0,25 = ×1,5).
 @export_range(0.0, 1.0, 0.01) var escalation_per_step := 0.25
 ## Aplicações permitidas por confronto.

@@ -173,6 +173,12 @@ def main():
             import katana_counter_keys
             k0 = pose_in_place(dk, (df, dd, ds, de), df - 1)
             KEYS, FRAMES, ADV_DIST, ADV_START, ADV_END = katana_counter_keys.build(k0)
+    elif clip == "cravada":
+        sys.path.insert(0, __import__("os").path.dirname(__import__("os").path.abspath(__file__)))
+        import katana_guard_keys
+        import katana_finish_keys
+        gk, _gf, _gd, _gs, _ge = katana_guard_keys.build()
+        KEYS, FRAMES, ADV_DIST, ADV_START, ADV_END = katana_finish_keys.build({ch: v[0][1] for ch, v in gk.items()})
     elif clip == "guarda":
         sys.path.insert(0, __import__("os").path.dirname(__import__("os").path.abspath(__file__)))
         import katana_guard_keys

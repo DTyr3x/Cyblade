@@ -9,18 +9,36 @@ extends Node
 ## `locked` é uma MARCA dentro de `current`, não uma segunda conta: cravar nunca soma pontos, então um evento
 ## que gera e crava pressão conta uma vez só. Invariante: 0 <= locked <= current <= max_posture().
 ##
-## Chegar ao máximo nesta etapa só é registrado (`full_reached`): a quebra vem no C2.2.
+##   ESTÁVEL ─máximo─► QUEBRADO ─botão─► FINALIZANDO ─contato─► ESTÁVEL (rebote)
+##                        │  ▲               │
+##                        │  └── cancelou ───┘
+##                        └── tempo acabou ───────────────► ESTÁVEL (rebote)
 
 ## Toda pressão aceita. `info`: fonte, ganho, pressão atual e cravada depois do evento.
 signal pressure_applied(info: Dictionary)
 signal full_reached
+## A postura quebrou. `by_precision`: o último golpe cravava (contra-corte).
+signal broken(by_precision: bool)
+## A quebra acabou sem finalização.
+signal recovered
+## A Cravada completou.
+signal finished
 
 enum Source { HIT, PARRY, EVADE }
+enum State { STABLE, BROKEN, FINISHING }
 
 var data: PostureData
 ## Configuração de treino: desligado, nenhuma fonte altera a pressão (isola os testes do C1 e o Instrutor
 ## didático). O total de parry continua sendo somado, porque é o contador do C1.
 var enabled := true
+## Desligado, a postura enche e só registra (treino da pressão e testes do núcleo).
+var break_enabled := true
+var state := State.STABLE
+var broken_until := -INF
+var rebound_until := -INF
+var exposed_until := -INF
+var breaks := 0
+var finishes := 0
 var current := 0.0
 var locked := 0.0
 var escalation_steps := 0
@@ -34,6 +52,7 @@ var parry_pressure_total := 0.0
 var _last_event := {Source.HIT: -1, Source.PARRY: -1, Source.EVADE: -1}
 var _last_gain_t := -INF
 var _updated_t := -INF
+var _finish_left := 0.0
 
 
 func _init(posture_data: PostureData = null) -> void:
@@ -78,7 +97,7 @@ func apply_parry(t: float, amount: float, event_id: int) -> float:
 	return _apply(t, Source.PARRY, amount * data.parry_gain_ratio, true, event_id)
 
 
-## Esquiva justa: gera e crava. Ainda sem quem chame no jogo: a detecção de ameaça real vem no C2.1.
+## Esquiva justa: gera e crava. Quem detecta a ameaça real é o inimigo (`TrainingInstructor._credit_evade`).
 func apply_evade(t: float, event_id: int) -> float:
 	return _apply(t, Source.EVADE, data.evade_pressure * data.evade_gain_ratio, true, event_id)
 
@@ -94,7 +113,14 @@ func _apply(t: float, source: Source, amount: float, locks: bool, event_id: int)
 	if not enabled:
 		return 0.0
 	update(t)
-	var gain := minf(amount, max_posture() * data.max_single_gain_ratio)
+	if state != State.STABLE:
+		return 0.0
+	var gain := amount
+	if source == Source.HIT and not locks and t <= exposed_until:
+		gain *= data.exposed_multiplier
+	if t < rebound_until:
+		gain *= data.rebound_gain_ratio
+	gain = minf(gain, max_posture() * data.max_single_gain_ratio)
 	if source != Source.HIT:
 		gain = minf(gain, maxf(defense_limit() - current, 0.0))
 	var was_full := is_full()
@@ -102,10 +128,12 @@ func _apply(t: float, source: Source, amount: float, locks: bool, event_id: int)
 	if locks:
 		locked = maxf(locked, minf(current, lock_limit()))
 	_last_gain_t = t
-	pressure_applied.emit({"source": source, "gain": gain, "current": current, "locked": locked, "time": t})
+	pressure_applied.emit({"source": source, "gain": gain, "locks": locks, "current": current, "locked": locked, "time": t})
 	if is_full() and not was_full:
 		times_full += 1
 		full_reached.emit()
+		if break_enabled:
+			_break(t, locks)
 	return gain
 
 
@@ -114,7 +142,11 @@ func update(t: float) -> void:
 	if not enabled:
 		_updated_t = t
 		return
-	if t <= _updated_t:
+	if state == State.BROKEN and t >= broken_until:
+		_end_break(t)
+		recovered.emit()
+	if t <= _updated_t or state != State.STABLE:
+		_updated_t = maxf(_updated_t, t)
 		return
 	var from := maxf(_updated_t, _last_gain_t + data.recovery_delay)
 	var reset_t := _last_gain_t + data.combat_reset_time
@@ -129,7 +161,62 @@ func update(t: float) -> void:
 	_updated_t = t
 
 
-## Aplica um aumento da postura máxima (a quebra do C2.2 vai chamar). Devolve false se o limite já foi usado.
+## Abre a exposição até `until`: golpes comuns pressionam mais (o contra-corte já crava e não recebe o bônus).
+func expose(until: float) -> void:
+	exposed_until = maxf(exposed_until, until)
+
+
+func can_finish(t: float) -> bool:
+	return state == State.BROKEN and t <= broken_until
+
+
+## A Cravada começou: a janela congela e o inimigo não levanta no meio do golpe.
+func begin_finish(t: float) -> void:
+	_finish_left = broken_until - t
+	state = State.FINISHING
+
+
+## Cancelou antes do contato: a janela volta a correr.
+func cancel_finish(t: float) -> void:
+	if state == State.FINISHING:
+		state = State.BROKEN
+		broken_until = t + maxf(_finish_left, data.finish_resume_min)
+
+
+func complete_finish(t: float) -> void:
+	if state != State.FINISHING:
+		return
+	finishes += 1
+	_end_break(t)
+	finished.emit()
+
+
+## Quebra sem encher pela pressão (inimigo no fim da vida).
+func force_break(t: float) -> void:
+	if enabled and break_enabled and state == State.STABLE:
+		current = max_posture()
+		_break(t, false)
+
+
+func _break(t: float, by_precision: bool) -> void:
+	state = State.BROKEN
+	breaks += 1
+	broken_until = t + data.break_duration + (data.break_precision_bonus if by_precision else 0.0)
+	broken.emit(by_precision)
+
+
+## Fim da quebra, com ou sem finalização: postura zerada, rebote e postura máxima maior neste confronto.
+func _end_break(t: float) -> void:
+	state = State.STABLE
+	current = 0.0
+	locked = 0.0
+	rebound_until = t + data.rebound_time
+	_last_gain_t = t
+	_updated_t = t
+	escalate()
+
+
+## Aplica um aumento da postura máxima. Devolve false se o limite do confronto já foi usado.
 func escalate() -> bool:
 	if escalation_steps >= data.escalation_max_steps:
 		return false
@@ -158,5 +245,9 @@ func reset() -> void:
 	current = 0.0
 	locked = 0.0
 	escalation_steps = 0
+	state = State.STABLE
+	broken_until = -INF
+	rebound_until = -INF
+	exposed_until = -INF
 	_last_gain_t = -INF
 	_updated_t = -INF

@@ -1,0 +1,36 @@
+[gd_resource type="Resource" script_class="PostureData" format=3]
+
+[ext_resource type="Script" path="res://game/combat/posture_data.gd" id="1_robo"]
+
+[resource]
+script = ExtResource("1_robo")
+max_posture = 100.0
+recovery_delay = 1.5
+recovery_rate = 15.0
+combat_reset_time = 8.0
+lock_cap_ratio = 0.8
+offense_only_ratio = 0.2
+max_single_gain_ratio = 0.4
+hit_gain_ratio = 1.0
+parry_gain_ratio = 1.0
+evade_gain_ratio = 1.0
+evade_pressure = 14.0
+evade_window = 0.2
+exposed_multiplier = 1.5
+evade_exposed_time = 1.0
+break_duration = 1.8
+break_precision_bonus = 0.4
+break_hitstop = 0.1
+rebound_time = 3.0
+rebound_gain_ratio = 0.5
+post_break_interval = 0.6
+finish_range = 2.6
+finish_arc_deg = 180.0
+finish_stop_distance = 1.05
+finish_resume_min = 0.25
+finish_down_time = 1.2
+finish_health_ratio = 0.4
+break_neural_energy = 10.0
+finish_neural_energy = 30.0
+escalation_per_step = 0.25
+escalation_max_steps = 2
