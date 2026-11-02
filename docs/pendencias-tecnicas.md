@@ -40,7 +40,7 @@ Itens registrados para acompanhamento. Nenhum bloqueia o Pull Request do Marco 1
 | 19 | **Lâmina e sinal do Instrutor pequenos na câmera alta** (a preparação em âmbar é legível) | Média | Depois do playtest do PO: aumentar a lâmina ou o brilho só no Instrutor |
 | 20 | **Resolvida no C1.1:** deflexão autoral aprovada pelo PO | - | - |
 | 21 | **Desempenho do C1 medido com o Phantom Blade Zero aberto** | Baixa | Repetir com o jogo fechado |
-| 22 | **Postura, Energia Neural e contra-ataque são só contadores** | Esperado | C2 / C3 |
+| 22 | **Resolvida em parte:** contra-ataque no C1.1 e pressão de postura no C2.0. Energia Neural continua só contador | Esperado | C3 |
 
 ## Pendências abertas pelo C1.1
 
@@ -49,3 +49,11 @@ Itens registrados para acompanhamento. Nenhum bloqueia o Pull Request do Marco 1
 | 23 | **Deflexão e contra-corte por IK, sem captura de movimento** (ombros e punhos pouco sutis) e **um só contra-corte**, sem variação pela direção do golpe inimigo | Média | Refino depois do playtest do PO |
 | 24 | **Abertura sinalizada só pelo visor branco do Instrutor** e pelo HUD. O PO aprovou a legibilidade na câmera alta no C1.1; reavaliar quando houver mais de um inimigo em cena | Baixa | C2 (múltiplos inimigos) |
 | 25 | **Segunda execução seguida do playtest em janela às vezes termina sem gravar resultados** (3 casos, nenhum estouro de tempo; repetida sozinha, funciona) | Baixa | Investigar com o vigia do playtest; ver pendência 17 |
+
+## Pendências abertas pelo C2.0
+
+| # | Pendência | Impacto | Onde tratar |
+|---|---|---|---|
+| 26 | **Alcance no limite depende do FPS de render** (anterior ao C2): a pose da lâmina muda por quadro de render. Até 2,0 m do alvo, Kesa e contra-corte acertam igual de 30 a 144 FPS. A 30 FPS o contra-corte erra a partir de 2,05 m (nos demais, acerta até 2,10 m); a 2,20 m o Kesa varia entre FPS. A postura herda a diferença, porque só conta golpes que acertam | Baixa a 60 FPS ou mais | Decisão do PO: corrigir muda a detecção de golpes aprovados. Reavaliar no C2.4 |
+| 27 | **Razão entre estilos no modelo subiu para 1,63** (agressivo com esquiva sobre parry, jogador médio) com a regra dos últimos 20%, pouco acima do limite proposto de 1,6. Modelo, não medição; nenhum valor foi ajustado | Média | C2.4, com jogo real |
+| 28 | **Execução sem resultados (17, 25):** não ocorreu nas 9 execuções do C2.0, uma por vez. O playtest agora grava `m1_playtest_progresso.txt` por trecho | Baixa | Ler esse arquivo se voltar a ocorrer |

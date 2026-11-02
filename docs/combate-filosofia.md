@@ -12,9 +12,9 @@ O CYBLADE tem um combate **próprio**, de ninja cyberpunk: extremamente responsi
 2. **Golpes com identidade** e animações convincentes (Kesa, Kiriage e, em avaliação, Tsuki).
 3. **Parry com timing recompensador** (C1).
 4. **Esquiva fluida** (aprovada).
-5. **Contra-ataques** (C2).
+5. **Contra-ataques** (C1.1, aprovado).
 6. **Quebra de postura** (C2).
-7. **Finalizações especiais** (C3).
+7. **Finalização manual** (C2).
 8. **Energia Neural** recompensando execução habilidosa (C3).
 9. **Feedback audiovisual sincronizado** ao instante real do contato.
 10. **Clareza visual e curva de aprendizado justa:** o jogador entende por que acertou ou errou.
@@ -44,7 +44,7 @@ O CYBLADE tem um combate **próprio**, de ninja cyberpunk: extremamente responsi
 
 | Etapa | Conteúdo | Situação |
 |---|---|---|
-| C1 | Parry: defesa normal, parry perfeito, defesa fora do tempo; inimigo de treino com ataque simples | Proposta em `docs/c1-parry-proposta.md`, aguardando aprovação |
-| C2 | Contra-ataque, pressão de postura, quebra de postura | Só planejamento |
-| C3 | Combate contra inimigo, Energia Neural, finalização especial, refinamento da cadeia de 3 golpes | Só planejamento |
+| C1 | Parry, deflexão e contra-ataque de oportunidade, com inimigo de treino | C1.0 e C1.1 aprovados pelo PO |
+| C2 | Pressão de postura, quebra e finalização manual. Sem postura do jogador | Direção aprovada pelo PO. C2.0 em avaliação (`docs/c2-0-nucleo-postura.md`); C2.1 a C2.4 sem implementação |
+| C3 | Combate contra inimigo, Energia Neural, refinamento da cadeia de 3 golpes | Só planejamento |
 | C4 | Polimento de efeitos e áudio, legibilidade, curva de aprendizado, integração com a Forja de Combos | Só planejamento |

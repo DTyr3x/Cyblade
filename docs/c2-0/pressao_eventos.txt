@@ -1,0 +1,26 @@
+  0.90 s  atual   0.0  cravada   0.0  A. cadeia sem precisão
+  1.05 s  atual   3.0  cravada   0.0  +3.0 de golpe
+  1.38 s  atual   6.0  cravada   0.0  +3.0 de golpe
+  1.84 s  atual  13.0  cravada   0.0  +7.0 de golpe
+  4.51 s  atual   0.0  cravada   0.0  sem cravar, a pressão some
+  4.51 s  atual   0.0  cravada   0.0  B. parry, contra-corte e golpes
+  5.69 s  atual  25.0  cravada  25.0  +25.0 de parry
+  5.96 s  atual  37.0  cravada  37.0  +12.0 de golpe
+  7.14 s  atual  40.0  cravada  37.0  +3.0 de golpe
+  7.48 s  atual  43.0  cravada  37.0  +3.0 de golpe
+  9.63 s  atual  37.0  cravada  37.0  recuperação parou no piso
+  9.63 s  atual  37.0  cravada  37.0  C. parries até o teto de 80%
+ 11.67 s  atual  62.0  cravada  62.0  +25.0 de parry
+ 14.32 s  atual  80.0  cravada  80.0  +18.0 de parry
+ 16.97 s  atual  80.0  cravada  80.0  +0.0 de parry
+ 17.42 s  atual  80.0  cravada  80.0  D. últimos 20% só com golpes que acertam
+ 18.08 s  atual  83.0  cravada  80.0  +3.0 de golpe
+ 18.42 s  atual  86.0  cravada  80.0  +3.0 de golpe
+ 18.87 s  atual  93.0  cravada  80.0  +7.0 de golpe
+ 19.33 s  atual  96.0  cravada  80.0  +3.0 de golpe
+ 19.69 s  atual  99.0  cravada  80.0  +3.0 de golpe
+ 20.15 s  atual 100.0  cravada  80.0  +7.0 de golpe
+ 20.15 s  atual 100.0  cravada  80.0  postura cheia (sem quebra no C2.0)
+ 23.62 s  atual  80.0  cravada  80.0  sem novos golpes, voltou ao piso de 80
+ 28.83 s  atual  69.8  cravada   0.0  8 s sem pressão: confronto acabou, piso zerado
+ 32.84 s  atual   9.6  cravada   0.0  fim

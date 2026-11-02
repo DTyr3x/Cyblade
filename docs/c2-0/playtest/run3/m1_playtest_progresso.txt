@@ -1,0 +1,11 @@
+2026-11-02T18:52:53 aquecimento
+2026-11-02T18:52:57 andar_teclado
+2026-11-02T18:53:01 circulo_teclado
+2026-11-02T18:53:09 esquivas
+2026-11-02T18:53:16 gamepad_simulado
+2026-11-02T18:53:21 rampa_e_plataforma
+2026-11-02T18:53:27 combate_katana
+2026-11-02T18:53:36 defesa_parry
+2026-11-02T18:53:44 camera_combate
+2026-11-02T18:53:48 camera_exploracao
+2026-11-02T18:53:52 camera_chefe
