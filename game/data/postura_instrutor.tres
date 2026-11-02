@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="PostureData" format=3]
+
+[ext_resource type="Script" path="res://game/combat/posture_data.gd" id="1_postura"]
+
+[resource]
+script = ExtResource("1_postura")
+max_posture = 100.0
+recovery_delay = 1.5
+recovery_rate = 15.0
+combat_reset_time = 8.0
+lock_cap_ratio = 0.8
+offense_only_ratio = 0.2
+max_single_gain_ratio = 0.4
+hit_gain_ratio = 1.0
+parry_gain_ratio = 1.0
+evade_gain_ratio = 1.0
+evade_pressure = 14.0
+escalation_per_step = 0.25
+escalation_max_steps = 2
