@@ -1,6 +1,6 @@
 # C1.1: deflexão autoral do parry e contra-ataque de oportunidade
 
-Status: **implementado e testado por script. NÃO aprovado: depende do playtest humano do PO.**
+Status: **APROVADO PELO PO após playtest humano (9 de 9 critérios, sem ressalvas).** Ver "Aprovação do PO" no fim deste documento.
 Branch `feat/c1-parry` (depende do H2 do PR #3, ainda sem merge). Sem PR e sem merge. Não modifiquei `feat/h2-combate-katana`. O C1.0 (aprovado, janela de 0,14 s) é base protegida e **nenhum valor dele foi alterado**; Kesa, Kiriage e Tsuki continuam idênticos (SHA-256 conferido por teste).
 
 ## 1. Aprovação do C1.0
@@ -118,3 +118,25 @@ Fique a uns 2 m do Instrutor (à direita do boneco). K (ou LB) = defesa/parry, J
 9. Atacar, esquivar e defender durante a abertura se misturam sem travar? Alguma vez o J virou contra-ataque quando você não queria?
 10. O feedback do contra-ataque é satisfatório sem excesso de efeitos?
 11. Você sente a sequência: **"li o ataque, acertei o momento, desviei a arma e aproveitei a oportunidade"**?
+
+## Aprovação do PO
+
+O PO realizou o playtest humano do **C1.1** e o aprovou (02/11/2026): **9 de 9 critérios aprovados, nenhuma ressalva, nenhum refinamento solicitado.**
+
+Critérios aprovados, como o PO os registrou:
+
+1. Animação autoral de deflexão.
+2. Contato visual das armas.
+3. Sincronia de efeitos e som.
+4. Legibilidade na câmera alta.
+5. Resposta do contra-ataque.
+6. Transição deflexão → contra-corte.
+7. Identidade e impacto do contra-corte.
+8. Janela de oportunidade de 0,8 s.
+9. Liberdade de esquiva, ataque e movimentação.
+
+O C1.1 passa a ser **base protegida contra regressões**, junto do C1.0 (janela de 0,14 s), de Kesa, Kiriage, locomoção, câmera e esquiva: os valores do grupo "Contra-ataque de oportunidade" de `DefenseData` (`counter_window` 0,80 s, `counter_requires_perfect`, `counter_charges` 1) e os clipes `katana_deflexao.res` e `katana_contra.res` só mudam com nova autorização do PO. Os testes `C1.1: oportunidade (lógica pura)` e `C1.1: deflexão e contra-ataque no jogo` (e a verificação por FPS) protegem esse comportamento.
+
+O **Tsuki** continua implementado e aguardando aprovação humana específica.
+
+Próximo: proposta técnica do C2, sistema de postura, ainda local e sem commit. Nada do C2 foi implementado.

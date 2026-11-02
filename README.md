@@ -27,7 +27,7 @@ Um ninja com katana enfrenta robôs numa megacidade industrial, com qualidade vi
 | H2.2 | Kiriage de retorno (2º golpe autoral, continuação do Kesa) | Aprovado pelo PO (8 de 8) |
 | H2.3 | Tsuki de passo duplo (3º golpe autoral; combo Kesa → Kiriage → Tsuki) | Em avaliação pelo PO (PR #3) |
 | C1.0 | Defesa e parry (Instrutor de treino, guarda, parry perfeito, falha de defesa) | Aprovado pelo PO (9 de 9; base protegida) |
-| C1.1 | Deflexão autoral do parry e contra-ataque de oportunidade | Em avaliação pelo PO (branch `feat/c1-parry`, sem PR) |
+| C1.1 | Deflexão autoral do parry e contra-ataque de oportunidade | Aprovado pelo PO (9 de 9; base protegida) |
 | 2 | Direção gráfica | Planejado |
 | 3 | Combate | Planejado |
 | 4 | Forja de Combos | Planejado |
