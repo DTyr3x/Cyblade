@@ -50,6 +50,8 @@ func _run() -> void:
 	await _test_c1_play()
 	_test_c11_logic()
 	await _test_c11_play()
+	_test_c20_logic()
+	await _test_c20_play()
 	print("== resultado: %d ok, %d falha(s) ==" % [_passed, _failed])
 	quit(1 if _failed > 0 else 0)
 
@@ -1883,6 +1885,7 @@ func _c1_setup(dist := 1.7) -> TrainingInstructor:
 	var ins := _main.get("instructor") as TrainingInstructor
 	ins.enabled = true
 	ins.interval = 0.4
+	ins.posture.enabled = false   # isolamento: o C2 tem testes próprios (_c2_setup); ver docs/c2-0-nucleo-postura.md
 	await _reset_player(ins.global_position + Vector3(0, 0.05, dist), 0.0)
 	_player.vitals.health = _player.vitals.max_health
 	return ins
@@ -2292,4 +2295,358 @@ func _test_c11_play() -> void:
 	_key(KEY_S, false)
 	await _seconds(0.3)
 	_check(FileAccess.get_sha256("res://assets/animations/katana/katana_kesa.res") == KESA_APPROVED_SHA256, "Kesa continua idêntico ao aprovado depois do C1.1")
+	await _reset_player(Vector3(-25, 0.05, 25), -PI / 2.0)
+
+
+# --- C2.0: núcleo de pressão de postura -----------------------------------------------------
+
+const DEFLECT_SHA256 := "04fe3e567450f40e7818692133654f7a3d7808f1a17abebc747d4c668509762b"
+const COUNTER_SHA256 := "c979837e17cd488f861c3b17eb592ef715452541d94135d1eca1c0cb734df0e9"
+
+
+func _c2_near(a: float, b: float) -> bool:
+	return absf(a - b) < 0.001
+
+
+## Propriedades exportadas de um recurso, sem as referências a clipes e scripts.
+func _resource_values(res: Resource) -> Dictionary:
+	var out := {}
+	for prop: Dictionary in res.get_property_list():
+		if prop["usage"] & PROPERTY_USAGE_SCRIPT_VARIABLE and prop["type"] != TYPE_OBJECT:
+			out[prop["name"]] = res.get(prop["name"])
+	return out
+
+
+func _same_values(a: Resource, b: Resource) -> bool:
+	var va := _resource_values(a)
+	var vb := _resource_values(b)
+	if va.size() != vb.size():
+		return false
+	for k: String in va:
+		if typeof(va[k]) == TYPE_FLOAT:
+			if absf(float(va[k]) - float(vb[k])) > 0.00001:
+				return false
+		elif va[k] != vb[k]:
+			return false
+	return true
+
+
+## Instrutor com a postura ligada e zerada (os testes do C1 a desligam em `_c1_setup`).
+func _c2_setup(dist := 1.7) -> TrainingInstructor:
+	var ins := await _c1_setup(dist)
+	ins.posture.enabled = true
+	ins.posture.reset()
+	return ins
+
+
+func _c2_hit(ins: TrainingInstructor) -> void:
+	var n := ins.hits.size()
+	await _attack_tap()
+	await _wait_until(func(): return ins.hits.size() > n, 0.6)
+
+
+func _test_c20_logic() -> void:
+	print("-- C2.0: núcleo de postura (lógica pura)")
+	var pool: Array[PostureController] = []
+	var make := func() -> PostureController:
+		var q := PostureController.new(PostureData.new())
+		pool.append(q)
+		return q
+
+	# Dados: valores iniciais em recurso editável.
+	var d := PostureData.load_default()
+	_check(_same_values(d, PostureData.new()), "postura_instrutor.tres igual aos valores do código")
+	_check(_c2_near(d.max_posture, 100.0) and _c2_near(d.recovery_delay, 1.5) and _c2_near(d.recovery_rate, 15.0) and _c2_near(d.combat_reset_time, 8.0), "postura 100, recuperação 15/s depois de 1,5 s, confronto acaba em 8 s")
+	_check(_c2_near(d.lock_cap_ratio, 0.80) and _c2_near(d.offense_only_ratio, 0.20) and _c2_near(d.max_single_gain_ratio, 0.40), "cravada até 80%, últimos 20% só com golpe, ganho único até 40%")
+	_check(_c2_near(d.escalation_per_step, 0.25) and d.escalation_max_steps == 2, "escalonamento planejado: duas aplicações de 25% por confronto")
+
+	# Pressão atual e recuperação.
+	var p: PostureController = make.call()
+	_check(_c2_near(p.apply_hit(10.0, 3.0, false, 1), 3.0) and _c2_near(p.current, 3.0) and _c2_near(p.locked, 0.0), "golpe comum: sobe a pressão atual e não crava")
+	p.update(11.49)
+	_check(_c2_near(p.current, 3.0), "sem recuperação antes de 1,5 s")
+	p.update(11.60)
+	_check(_c2_near(p.current, 1.5), "recuperação de 15 por segundo depois do atraso", "%.2f" % p.current)
+	p.update(12.5)
+	_check(_c2_near(p.current, 0.0), "sem piso, a pressão volta a zero")
+	p.apply_hit(20.0, 10.0, false, 2)
+	p.update(21.4)
+	p.apply_hit(21.4, 10.0, false, 3)
+	p.update(22.8)
+	_check(_c2_near(p.current, 20.0), "novo golpe reinicia o atraso da recuperação")
+
+	# Piso cravado e proteção contra contagem duplicada.
+	p = make.call()
+	p.apply_parry(10.0, 25.0, 1)
+	_check(_c2_near(p.current, 25.0) and _c2_near(p.locked, 25.0), "parry gera e crava: 25 atual, 25 cravada (não soma 50)", "%.0f / %.0f" % [p.current, p.locked])
+	p = make.call()
+	p.apply_hit(10.0, 10.0, false, 1)
+	p.apply_hit(10.2, 12.0, true, 2)
+	_check(_c2_near(p.current, 22.0) and _c2_near(p.locked, 22.0), "contra-corte que acerta: soma uma vez e crava o acumulado", "%.0f / %.0f" % [p.current, p.locked])
+	p.apply_hit(10.4, 6.0, false, 3)
+	_check(_c2_near(p.current, 28.0) and _c2_near(p.locked, 22.0), "golpe comum depois de cravar: sobe só a atual")
+	p.update(13.0)
+	_check(_c2_near(p.current, 22.0) and _c2_near(p.locked, 22.0), "a recuperação para no piso cravado", "%.1f" % p.current)
+	p.update(17.0)
+	_check(_c2_near(p.current, 22.0) and _c2_near(p.locked, 22.0), "o piso não diminui com a recuperação normal")
+	p.update(18.5)
+	_check(_c2_near(p.locked, 0.0) and p.current < 22.0, "8 s sem pressão: o confronto acaba e o piso some")
+	p.update(25.0)
+	_check(_c2_near(p.current, 0.0), "depois do confronto a pressão volta a zero")
+
+	# Limite de 80% e trecho final ofensivo.
+	p = make.call()
+	for i in 6:
+		p.apply_hit(10.0 + i * 0.1, 15.0, false, i)
+	p.apply_hit(11.0, 3.0, true, 10)
+	_check(_c2_near(p.current, 93.0) and _c2_near(p.locked, 80.0), "a cravada para em 80% mesmo com pressão maior", "%.0f / %.0f" % [p.current, p.locked])
+	p.update(14.0)
+	_check(_c2_near(p.current, 80.0), "a pressão acima de 80% se recupera até o piso")
+	p = make.call()
+	for i in 8:
+		p.apply_parry(10.0 + i, 25.0, i)
+	_check(_c2_near(p.current, 80.0) and _c2_near(p.locked, 80.0) and not p.is_full(), "só parry para em 80%: nunca enche a postura", "%.0f" % p.current)
+	for i in 8:
+		p.apply_evade(20.0 + i, i)
+	_check(_c2_near(p.current, 80.0) and not p.is_full(), "só esquiva também para em 80%")
+	var fulls := [0]
+	p.full_reached.connect(func() -> void: fulls[0] += 1)
+	var n := 100
+	while not p.is_full() and n < 110:
+		p.apply_hit(28.0 + (n - 100) * 0.1, 3.0, false, n)
+		n += 1
+	_check(p.is_full() and n == 107 and fulls[0] == 1 and p.times_full == 1, "os últimos 20% vêm de golpes que acertam (7 golpes de 3)", "%d golpes" % (n - 100))
+	p.apply_hit(29.0, 3.0, false, 200)
+	_check(_c2_near(p.current, 100.0) and p.times_full == 1, "cheia não passa do máximo e não conta de novo")
+	p = make.call()
+	_check(_c2_near(p.apply_hit(10.0, 999.0, false, 1), 40.0), "um único ganho fica limitado a 40% da postura")
+
+	# Eventos repetidos.
+	p = make.call()
+	p.apply_hit(10.0, 3.0, false, 5)
+	_check(_c2_near(p.apply_hit(10.01, 3.0, false, 5), 0.0) and _c2_near(p.apply_hit(10.02, 3.0, false, 4), 0.0) and _c2_near(p.current, 3.0) and p.rejected_events == 2, "golpe repetido ou antigo não soma de novo")
+	p.apply_parry(10.1, 25.0, 3)
+	var total := p.parry_pressure_total
+	_check(_c2_near(p.apply_parry(10.2, 25.0, 3), 0.0) and _c2_near(p.parry_pressure_total, total) and _c2_near(p.current, 28.0), "parry repetido não soma nem no contador do C1")
+	_check(_c2_near(p.apply_hit(10.3, 0.0, false, 9), 0.0) and _c2_near(p.apply_hit(10.3, -5.0, false, 10), 0.0), "pressão zero ou negativa é ignorada")
+	p.apply_hit(10.3, 3.0, false, 11)
+	_check(_c2_near(p.apply_evade(10.4, 3), 14.0), "cada fonte tem sua própria numeração de eventos")
+
+	# Passos diferentes, mesmo resultado.
+	var results: Array[Vector2] = []
+	for steps: int in [1, 78, 156, 312, 374]:
+		var q: PostureController = make.call()
+		q.apply_hit(10.0, 30.0, false, 1)
+		q.apply_parry(10.2, 25.0, 1)
+		q.apply_hit(10.4, 20.0, false, 2)
+		for i in steps:
+			q.update(10.4 + 2.6 * (i + 1) / steps)
+		results.append(Vector2(q.current, q.locked))
+	var same := true
+	for r in results:
+		same = same and _c2_near(r.x, 58.5) and _c2_near(r.y, 55.0)
+	_check(same, "recuperação igual com passos de 30, 60, 120 e 144 Hz ou de uma vez só", "%.2f / %.2f" % [results[0].x, results[0].y])
+
+	# Normalização quando a postura máxima muda.
+	p = make.call()
+	p.apply_hit(10.0, 30.0, false, 1)
+	p.apply_parry(10.1, 25.0, 1)
+	p.apply_hit(10.2, 10.0, false, 2)
+	var cr := p.current_ratio()
+	var lr := p.locked_ratio()
+	_check(p.escalate() and _c2_near(p.max_posture(), 125.0) and _c2_near(p.current_ratio(), cr) and _c2_near(p.locked_ratio(), lr), "postura máxima +25%: as frações preenchidas não mudam", "%.2f / %.2f" % [p.current, p.locked])
+	_check(p.escalate() and _c2_near(p.max_posture(), 150.0) and _c2_near(p.current, 97.5) and _c2_near(p.locked, 82.5), "duas aplicações: ×1,5, com pressão e piso reescalados juntos")
+	_check(not p.escalate() and _c2_near(p.max_posture(), 150.0), "terceira aplicação é recusada")
+	_check(p.locked <= p.lock_limit() and p.locked <= p.current and p.current <= p.max_posture(), "invariante depois de normalizar: 0 <= cravada <= atual <= máximo")
+	_check(_c2_near(p.lock_limit(), 120.0) and _c2_near(p.defense_limit(), 120.0), "os limites acompanham o máximo: 80% de 150")
+	p.update(30.0)
+	_check(p.escalation_steps == 0 and _c2_near(p.max_posture(), 100.0) and _c2_near(p.locked, 0.0), "fim do confronto: escalonamento e piso zerados")
+
+	# Multiplicadores, configuração de treino e independência entre alvos.
+	var dm := PostureData.new()
+	dm.hit_gain_ratio = 0.5
+	dm.parry_gain_ratio = 2.0
+	p = PostureController.new(dm)
+	pool.append(p)
+	_check(_c2_near(p.apply_hit(10.0, 4.0, false, 1), 2.0) and _c2_near(p.apply_parry(10.1, 10.0, 1), 20.0), "multiplicadores por fonte vêm do perfil")
+	p = make.call()
+	p.enabled = false
+	_check(_c2_near(p.apply_hit(10.0, 3.0, false, 1), 0.0) and _c2_near(p.apply_parry(10.1, 25.0, 1), 0.0) and _c2_near(p.current, 0.0) and _c2_near(p.locked, 0.0), "desligada, nenhuma fonte altera a pressão")
+	_check(_c2_near(p.parry_pressure_total, 25.0), "desligada, o contador do C1 continua somando")
+	var a: PostureController = make.call()
+	var b: PostureController = make.call()
+	a.apply_hit(10.0, 3.0, false, 1)
+	_check(_c2_near(b.current, 0.0) and _c2_near(b.apply_hit(10.0, 3.0, false, 1), 3.0), "a pressão é por inimigo")
+	var src := FileAccess.get_file_as_string("res://game/combat/posture_controller.gd").to_lower()
+	_check(not ("kesa" in src or "kiriage" in src or "tsuki" in src or "contra_corte" in src), "o núcleo não conhece golpes específicos (pronto para a Forja)")
+	for q in pool:
+		q.free()
+
+
+func _test_c20_play() -> void:
+	print("-- C2.0: pressão no jogo")
+	var c := _player.combat
+	var df := _player.defense
+	var strikes := c.combo.strikes
+	var counter := c.combo.counter_strike
+
+	# Golpes e contra-corte: dados, com os valores aprovados intactos.
+	_check(_c2_near(strikes[0].posture_pressure, 3.0) and _c2_near(strikes[1].posture_pressure, 3.0) and _c2_near(strikes[2].posture_pressure, 7.0) and _c2_near(counter.posture_pressure, 12.0), "pressão por golpe em dados: Kesa 3, Kiriage 3, Tsuki 7 (provisório), contra-corte 12")
+	_check(not strikes[0].posture_locks and not strikes[1].posture_locks and not strikes[2].posture_locks and counter.posture_locks, "só o contra-corte crava")
+	_check(_c2_near(df.data.parry_posture_pressure, 25.0), "parry usa os 25 do C1, sem mudança")
+	var fresh := ComboSet.katana_default()
+	var same_strikes := _same_values(strikes[0], fresh.strikes[0]) and _same_values(strikes[1], fresh.strikes[1]) and _same_values(strikes[2], fresh.strikes[2]) and _same_values(counter, fresh.counter_strike)
+	_check(same_strikes, "katana_combo.tres igual aos valores do código")
+
+	# Isolamento: `_c1_setup` desliga o C2 e os testes antigos seguem vendo o comportamento do C1.
+	var ins := await _c1_setup()
+	var p := ins.posture
+	p.reset()
+	_check(not p.enabled, "_c1_setup desliga a postura (isolamento dos testes do C1)")
+	var pp0 := ins.posture_pressure
+	await _c11_parry(ins)
+	_check(ins.results.back().get("result", -9) == DefenseController.Result.PERFECT and _c2_near(p.current, 0.0) and _c2_near(ins.posture_pressure - pp0, 25.0), "desligada: parry normal, sem pressão, e o contador do C1 soma 25")
+	await _seconds(1.0)
+
+	# Golpes que acertam.
+	ins = await _c2_setup()
+	ins.enabled = false
+	await _seconds(0.7)
+	p = ins.posture
+	var events: Array[Dictionary] = []
+	p.pressure_applied.connect(func(e: Dictionary) -> void: events.append(e))
+	await _c2_hit(ins)
+	_check(_c2_near(p.current, 3.0) and _c2_near(p.locked, 0.0) and events.size() == 1, "Kesa que acerta: +3 de pressão atual", "%.1f" % p.current)
+	await _wait_until(func(): return c.clip_time() >= c.current.chain_open, 0.5)
+	await _c2_hit(ins)
+	_check(c.current == strikes[1] and _c2_near(p.current, 6.0) and events.size() == 2, "Kiriage que acerta: +3")
+	await _wait_until(func(): return c.clip_time() >= c.current.chain_open, 0.5)
+	await _c2_hit(ins)
+	_check(c.current == strikes[2] and _c2_near(p.current, 13.0) and events.size() == 3, "Tsuki que acerta: +7 (provisório)", "%.1f" % p.current)
+	_check(_c2_near(p.locked, 0.0), "cadeia sem precisão não crava nada")
+	_check(_c2_near(p.apply_hit(CombatClock.time, 7.0, false, c.swing_id), 0.0), "o mesmo golpe entregue de novo é recusado")
+	await _wait_until(func(): return not c.is_attacking(), 1.0)
+	await _wait_until(func(): return p.current < 13.0, 2.5)
+	var waited := CombatClock.time - float(events.back()["time"])
+	_check(waited >= 1.5 and waited <= 1.5 + 2.0 * DT, "no jogo a recuperação começa 1,5 s depois do último ganho", "%.3f s" % waited)
+	await _wait_until(func(): return p.current <= 0.0, 2.0)
+	_check(_c2_near(p.current, 0.0), "sem cravar, a pressão some")
+
+	# Golpe que erra: nada.
+	var ev0 := events.size()
+	await _reset_player(ins.global_position + Vector3(0, 0.05, 6.0), 0.0)
+	await _seconds(0.6)
+	var misses := _player.hit_detector.total_misses
+	await _attack_tap()
+	await _wait_until(func(): return not c.is_attacking() and _player.hit_detector.total_misses > misses, 1.2)
+	_check(_player.hit_detector.total_misses > misses and events.size() == ev0 and _c2_near(p.current, 0.0), "golpe que erra não dá pressão")
+
+	# Parry perfeito, defesa normal, parry em falso e golpe recebido.
+	ins = await _c2_setup()
+	p = ins.posture
+	var evs: Array[Dictionary] = []
+	p.pressure_applied.connect(func(e: Dictionary) -> void: evs.append(e))
+	var tc := await _c1_next_contact(ins)
+	await _press_defend_at(tc - 0.30)
+	await _wait_until(func(): return float(ins.results.back().get("time", 0.0)) >= tc - 0.001, 1.0)
+	_key(KEY_K, false)
+	_check(ins.results.back().get("result", -9) == DefenseController.Result.BLOCK and evs.is_empty(), "defesa normal não dá pressão")
+	await _seconds(0.4)
+	await _tap(KEY_K)
+	await _seconds(0.3)
+	_check(evs.is_empty(), "parry em falso (apertar sem ler o inimigo) não dá pressão")
+	tc = await _c1_next_contact(ins)
+	await _wait_until(func(): return float(ins.results.back().get("time", 0.0)) >= tc - 0.001, 1.0)
+	_check(ins.results.back().get("result", -9) == DefenseController.Result.HIT and evs.is_empty(), "golpe recebido não dá pressão")
+	await _seconds(0.5)
+	ins = await _c2_setup()   # o golpe recebido empurrou o jogador para fora do alcance
+	await _c11_parry(ins)
+	_check(ins.results.back().get("result", -9) == DefenseController.Result.PERFECT and evs.size() == 1 and _c2_near(p.current, 25.0) and _c2_near(p.locked, 25.0), "parry perfeito no jogo: 25 atual e 25 cravada", "%.0f / %.0f" % [p.current, p.locked])
+	_check(df.opportunity_open(CombatClock.time) and ins.phase == TrainingInstructor.Phase.OFF_BALANCE, "o parry continua abrindo a oportunidade e o desequilíbrio do C1")
+
+	# Contra-ataque válido: acerta, soma uma vez e crava.
+	var n0 := ins.hits.size()
+	await _seconds(0.1)
+	await _attack_tap()
+	await _wait_until(func(): return ins.hits.size() > n0, 0.6)
+	_check(c.is_counter and _c2_near(p.current, 37.0) and _c2_near(p.locked, 37.0) and evs.size() == 2, "contra-corte que acerta: 37 atual e 37 cravada", "%.0f / %.0f" % [p.current, p.locked])
+	await _wait_until(func(): return not c.is_attacking(), 1.0)
+	ins.enabled = false
+	await _seconds(0.7)
+	await _c2_hit(ins)
+	_check(_c2_near(p.current, 40.0) and _c2_near(p.locked, 37.0), "Kesa depois de cravar: 40 atual, 37 cravada")
+	await _wait_until(func(): return not c.is_attacking(), 1.0)
+	await _seconds(2.0)
+	_check(_c2_near(p.current, 37.0), "recuperação no jogo para no piso cravado", "%.1f" % p.current)
+	await _seconds(6.0)
+	_check(p.current < 37.0 and _c2_near(p.locked, 0.0), "8 s sem pressão: o piso some no jogo")
+
+	# Contra-ataque que erra: gasta a oportunidade e não pressiona.
+	ins = await _c2_setup()
+	p = ins.posture
+	var ev2: Array[Dictionary] = []
+	p.pressure_applied.connect(func(e: Dictionary) -> void: ev2.append(e))
+	await _seconds(0.3)
+	await _c11_parry(ins)
+	var used := df.opportunities_used
+	await _seconds(0.1)
+	ins.enabled = false
+	_player.global_position = ins.global_position + Vector3(0, 0.05, 6.0)
+	await _attack_tap()
+	await _wait_until(func(): return df.opportunities_used > used and c.is_counter, 0.5)
+	await _wait_until(func(): return not c.is_attacking(), 1.0)
+	_check(df.opportunities_used > used and ev2.size() == 1 and _c2_near(p.current, 25.0) and _c2_near(p.locked, 25.0), "contra-corte que erra gasta a oportunidade e não dá pressão nem crava", "%.0f / %.0f" % [p.current, p.locked])
+
+	# Esquiva: pronta para o C2.1, sem nenhum efeito em jogo.
+	ins = await _c2_setup()
+	p = ins.posture
+	ins.enabled = false
+	await _seconds(0.3)
+	await _tap(KEY_SPACE)
+	await _seconds(0.5)
+	_check(_c2_near(p.current, 0.0), "esquiva sem ameaça não dá pressão")
+	ins = await _c2_setup()
+	p = ins.posture
+	var hp := _player.vitals.health
+	tc = await _c1_next_contact(ins)
+	while CombatClock.time < tc - 0.10:
+		await physics_frame
+	_key(KEY_A, true)
+	await _tap(KEY_SPACE)
+	await _wait_until(func(): return CombatClock.time > tc + 0.1, 0.6)
+	_key(KEY_A, false)
+	_check(_c2_near(p.current, 0.0) and _c2_near(_player.vitals.health, hp), "esquiva pronta para o C2.1: evita o golpe como antes e ainda não pressiona")
+	await _seconds(0.5)
+
+	# Cheia: só registra. Sem quebra nem reação nova no C2.0.
+	ins = await _c2_setup()
+	p = ins.posture
+	ins.enabled = false
+	await _seconds(0.7)
+	p.current = 98.0
+	p._last_gain_t = CombatClock.time
+	var phase_before := ins.phase
+	await _c2_hit(ins)
+	_check(p.is_full() and p.times_full >= 1 and ins.phase == phase_before, "postura cheia: só registra; o Instrutor não muda de fase")
+	_check(not TrainingInstructor.Phase.has("BROKEN"), "nenhuma fase de quebra existe no C2.0")
+	var hud := _main.get_node("DebugHud") as DebugHud
+	_check("postura 100/100" in hud._defense_text() and "cravada" in hud._defense_text() and "[CHEIA]" in hud._defense_text(), "HUD F3 mostra postura, cravada e cheia")
+	await _wait_until(func(): return not c.is_attacking(), 1.0)
+	ins.enabled = true
+	var tc2 := await _c1_next_contact(ins)
+	_check(tc2 > 0.0, "o Instrutor continua atacando com a postura cheia")
+	await _wait_until(func(): return ins.phase == TrainingInstructor.Phase.WAIT, 2.0)
+
+	# Sistemas aprovados intactos.
+	var keys := {"katana_kesa": KESA_APPROVED_SHA256, "katana_kiriage": KIRIAGE_APPROVED_SHA256, "katana_tsuki": TSUKI_APPROVED_SHA256, "katana_guarda": GUARD_SHA256, "katana_deflexao": DEFLECT_SHA256, "katana_contra": COUNTER_SHA256}
+	var intact := true
+	for clip: String in keys:
+		intact = intact and FileAccess.get_sha256("res://assets/animations/katana/%s.res" % clip) == keys[clip]
+	_check(intact, "6 clipes idênticos aos versionados (SHA-256): Kesa, Kiriage, Tsuki, guarda, deflexão, contra-corte")
+	var t := _player.tuning
+	_check(_c2_near(t.max_speed, 6.0) and _c2_near(t.dodge_distance, 4.0) and _c2_near(t.dodge_duration, 0.25) and _c2_near(t.dodge_recovery, 0.18) and _c2_near(t.dodge_iframe_start, 0.05) and _c2_near(t.dodge_iframe_end, 0.20), "movimentação e esquiva aprovadas intactas")
+	_check(_c2_near(df.data.perfect_window, 0.14) and _c2_near(df.data.whiff_lockout, 0.25) and _c2_near(df.data.counter_window, 0.80) and df.data.counter_charges == 1 and df.data.counter_requires_perfect, "parry de 0,14 s e janela de contra-ataque de 0,80 s intactos")
+	_check(_c2_near(strikes[0].damage, 10.0) and _c2_near(strikes[0].active_start, 7.0 / 60.0) and _c2_near(strikes[0].chain_open, 17.0 / 60.0) and _c2_near(strikes[1].damage, 10.0) and _c2_near(strikes[1].active_start, 8.0 / 60.0) and _c2_near(strikes[1].chain_open, 17.0 / 60.0), "tempos e dano de Kesa e Kiriage intactos")
+	ins.enabled = false
+	ins.posture.enabled = false
 	await _reset_player(Vector3(-25, 0.05, 25), -PI / 2.0)
